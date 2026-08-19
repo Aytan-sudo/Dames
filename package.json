@@ -1,11 +1,11 @@
 {
     "name": "dames",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "private": true,
-    "description": "Les dames internationales 10×10, prise majoritaire et dame volante, contre l'ordinateur ou à deux sur le même écran.",
+    "description": "Les dames internationales 10×10 et les dames anglaises 8×8, contre l'ordinateur ou à deux sur le même écran.",
     "type": "module",
     "scripts": {
-        "test": "node tests/test-damier.mjs && node tests/test-regles.mjs && node tests/test-selection.mjs && node tests/test-partie.mjs && node tests/test-ia.mjs && node tests/test-storage.mjs && node tests/test-page.mjs",
+        "test": "node tests/test-damier.mjs && node tests/test-regles.mjs && node tests/test-anglaise.mjs && node tests/test-selection.mjs && node tests/test-partie.mjs && node tests/test-ia.mjs && node tests/test-storage.mjs && node tests/test-page.mjs",
         "serve": "python3 -m http.server 8765"
     }
 }

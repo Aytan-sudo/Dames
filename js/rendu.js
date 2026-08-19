@@ -1,29 +1,36 @@
 // Le damier a l'ecran.
 //
-// Les cent cases sont posees une fois pour toutes ; seules les cinquante
-// sombres portent un numero et recoivent les appuis. Les pieces vivent dans
-// une couche au-dessus, chacune placee par `transform` : deplacer une piece,
-// c'est changer deux variables CSS, et la transition fait le reste. Aucun
-// element n'est recree pendant une partie, ce qui evite le clignotement et
-// permet a une rafle de s'animer d'un saut a l'autre.
+// Les cases sont posees une fois par variante ; seules les sombres portent un
+// numero et recoivent les appuis. Les pieces vivent dans une couche au-dessus,
+// chacune placee par `transform` : deplacer une piece, c'est changer deux
+// variables CSS, et la transition fait le reste. Aucun element n'est recree
+// pendant une partie, ce qui evite le clignotement et permet a une rafle de
+// s'animer d'un saut a l'autre.
 //
-// Le rendu ne connait aucune regle. Il recoit une position et un coup deja
-// valides, et se contente de les montrer.
+// Le rendu ne connait aucune regle. Il recoit une geometrie, une position et
+// un coup deja valides, et se contente de les montrer.
 
-import { CASES, COTE, RANGEES, rangeeDe, colonneDe, caseEn } from './damier.js';
-import { campDe, estDame } from './regles.js';
+import { estDame, campDe } from './regles.js';
 
 const DUREE_SAUT = 200;
 
-export function creerRendu({ damier, couche }) {
+export function creerRendu({ plateau, damier, couche }) {
     const cases = new Map();      // numero -> element de case sombre
     const pieces = new Map();     // numero -> element de piece
+    let geo = null;
 
-    function construire() {
+    // Change de damier : huit cases de cote ou dix. La variable --cote porte la
+    // taille jusqu'a la feuille de style, qui dimensionne la grille et les
+    // pieces a partir d'elle.
+    function poser(geometrie) {
+        geo = geometrie;
+        plateau.style.setProperty('--cote', String(geo.cote));
+
         const fragment = document.createDocumentFragment();
-        for (let rangee = 0; rangee < RANGEES; rangee++) {
-            for (let colonne = 0; colonne < COTE; colonne++) {
-                const numero = caseEn(rangee, colonne);
+        cases.clear();
+        for (let rangee = 0; rangee < geo.cote; rangee++) {
+            for (let colonne = 0; colonne < geo.cote; colonne++) {
+                const numero = geo.caseEn(rangee, colonne);
                 const element = document.createElement('div');
                 element.className = numero ? 'case sombre' : 'case claire';
                 if (numero) {
@@ -38,11 +45,13 @@ export function creerRendu({ damier, couche }) {
             }
         }
         damier.replaceChildren(fragment);
+        pieces.clear();
+        couche.replaceChildren();
     }
 
-    const poser = (element, numero) => {
-        element.style.setProperty('--colonne', colonneDe(numero));
-        element.style.setProperty('--rangee', rangeeDe(numero));
+    const placer = (element, numero) => {
+        element.style.setProperty('--colonne', geo.colonneDe(numero));
+        element.style.setProperty('--rangee', geo.rangeeDe(numero));
     };
 
     function creerPiece(piece, numero) {
@@ -50,7 +59,7 @@ export function creerRendu({ damier, couche }) {
         element.className = `piece ${campDe(piece) > 0 ? 'blanche' : 'noire'}${estDame(piece) ? ' dame' : ''}`;
         element.innerHTML = '<svg viewBox="0 0 24 24" class="couronne" aria-hidden="true">'
             + '<path d="M5 16h14l1.6-8-4.6 3-4-5.4-4 5.4-4.6-3Z"/></svg>';
-        poser(element, numero);
+        placer(element, numero);
         return element;
     }
 
@@ -59,7 +68,7 @@ export function creerRendu({ damier, couche }) {
     function dessiner(position) {
         const fragment = document.createDocumentFragment();
         pieces.clear();
-        for (let numero = 1; numero <= CASES; numero++) {
+        for (let numero = 1; numero <= geo.CASES; numero++) {
             const piece = position.cases[numero];
             if (!piece) continue;
             const element = creerPiece(piece, numero);
@@ -87,7 +96,7 @@ export function creerRendu({ damier, couche }) {
         mobile.classList.add('mobile');
 
         for (const [index, etape] of coup.chemin.entries()) {
-            poser(mobile, etape);
+            placer(mobile, etape);
             const mangee = coup.prises[index];
             if (mangee !== undefined) pieces.get(mangee)?.classList.add('mangee');
             if (!rapide) await attendre(DUREE_SAUT);
@@ -104,8 +113,8 @@ export function creerRendu({ damier, couche }) {
         mobile.classList.remove('mobile');
         pieces.set(coup.vers, mobile);
 
-        // La promotion se voit a l'arrivee, pas avant : un pion qui traverse
-        // la rangee adverse en cours de rafle reste un pion.
+        // La promotion se voit a l'arrivee, pas avant : aux internationales, un
+        // pion qui traverse la rangee adverse en cours de rafle reste un pion.
         if (estDame(position.cases[coup.vers])) mobile.classList.add('dame');
     }
 
@@ -124,8 +133,6 @@ export function creerRendu({ damier, couche }) {
         }
     }
 
-    const elementDe = numero => pieces.get(numero) ?? null;
-
     // Une piece qui refuse de bouger doit le dire, sinon le joueur croit que
     // l'appui n'a pas ete pris en compte et recommence de plus belle.
     function refuser(numero) {
@@ -137,6 +144,5 @@ export function creerRendu({ damier, couche }) {
         setTimeout(() => element.classList.remove('refus'), 320);
     }
 
-    construire();
-    return { construire, dessiner, jouer, marquer, refuser, elementDe, DUREE_SAUT };
+    return { poser, dessiner, jouer, marquer, refuser, DUREE_SAUT };
 }

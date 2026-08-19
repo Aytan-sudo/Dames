@@ -3,7 +3,7 @@
 // noir qu'en blanc, et rendre la main dans le temps qu'on lui a donne.
 
 import { counter, position, notations, noterCoup } from './harness.mjs';
-import { CASES } from '../js/damier.js';
+import { geometrieDe } from '../js/variantes.js';
 import { positionInitiale } from '../js/regles.js';
 import { evaluer, choisirCoup, NIVEAUX, niveauDe } from '../js/ia.js';
 import { creerPartie, jouer, bilan, trait } from '../js/partie.js';
@@ -26,9 +26,10 @@ check('un pion avance vaut plus qu un pion au fond',
 // evaluations ne s'annulent pas, la machine joue mieux d'un cote que de
 // l'autre — et personne ne comprendrait pourquoi.
 function miroir(pos) {
+    const { CASES } = geometrieDe(pos.variante);
     const cases = new Int8Array(CASES + 1);
-    for (let numero = 1; numero <= CASES; numero++) cases[51 - numero] = -pos.cases[numero];
-    return { cases, trait: -pos.trait };
+    for (let numero = 1; numero <= CASES; numero++) cases[CASES + 1 - numero] = -pos.cases[numero];
+    return { cases, trait: -pos.trait, variante: pos.variante };
 }
 
 const echantillons = [

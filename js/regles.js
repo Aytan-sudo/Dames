@@ -1,22 +1,29 @@
-// Les regles des dames internationales.
+// Les regles des dames — internationales et anglaises.
 //
-// Trois choses distinguent ce jeu du damier anglais, et les trois sont ici :
-//   — le pion prend aussi en arriere, sans jamais reculer autrement ;
-//   — la dame est volante : elle glisse sur toute la diagonale, prend de loin
-//     et se pose ou elle veut derriere la piece mangee ;
-//   — la prise est obligatoire et majoritaire : parmi toutes les rafles
-//     possibles, seules celles qui prennent le plus de pieces sont legales.
+// Le moteur est le meme pour les deux jeux ; ce qui les separe est lu dans
+// js/variantes.js, jamais ecrit en dur ici. Quatre differences suffisent a en
+// faire deux jeux distincts :
 //
-// La derniere regle est celle qui fait le jeu. Elle transforme chaque coup
-// adverse en question — « et si je lui donne un pion ici, que se passe-t-il
-// ensuite ? » — parce que l'adversaire n'a plus le choix de refuser.
+//   — le pion international prend aussi en arriere, sans jamais reculer
+//     autrement ; le pion anglais ne prend qu'en avant ;
+//   — la dame internationale est volante : elle glisse sur toute la diagonale,
+//     prend de loin et se pose ou elle veut derriere la piece mangee. La dame
+//     anglaise ne fait qu'un pas, dans les quatre sens ;
+//   — la prise est obligatoire des deux cotes, mais seule l'internationale
+//     impose la plus longue. C'est cette regle-la qui fait le jeu : elle
+//     transforme chaque coup en question — « et si je lui donne un pion ici ? »
+//     — parce que l'adversaire n'a plus le choix de refuser ;
+//   — aux anglaises, le pion qui atteint le fond est couronne et le coup
+//     s'arrete la, meme s'il pouvait continuer a manger.
 //
-// Le coup turc, aussi : les pieces mangees restent sur le damier jusqu'a la
-// fin de la rafle. Elles bloquent le passage, et on ne repasse jamais dessus.
+// Le coup turc vaut pour les deux : les pieces mangees restent sur le damier
+// jusqu'a la fin de la rafle. Elles bloquent le passage, et on ne repasse
+// jamais dessus.
 //
 // Rien dans ce fichier ne connait le DOM. Tout se teste en Node.
 
-import { CASES, DIRECTIONS, VOISIN, DIAGONALE, AVANT_BLANC, AVANT_NOIR, PROMOTION_BLANC, PROMOTION_NOIR } from './damier.js';
+import { DIRECTIONS, AVANT_BLANC, AVANT_NOIR } from './damier.js';
+import { varianteDe, geometrieDe } from './variantes.js';
 
 export const BLANC = 1;
 export const NOIR = -1;
@@ -30,21 +37,33 @@ export const adverse = camp => -camp;
 
 export const nomCamp = camp => (camp === BLANC ? 'blancs' : 'noirs');
 
-// La position : 50 cases numerotees a partir de 1, plus le camp au trait.
-// L'index 0 ne sert pas — le numero de case sert d'index, sans decalage a
-// retenir dans chaque boucle.
-export function positionInitiale() {
-    const cases = new Int8Array(CASES + 1);
-    for (let numero = 1; numero <= 20; numero++) cases[numero] = -PION;
-    for (let numero = 31; numero <= 50; numero++) cases[numero] = PION;
-    return { cases, trait: BLANC };
+// Une position porte sa variante : sans elle, une position isolee ne saurait
+// pas de quel jeu elle vient, et le moteur non plus.
+export const reglesDe = position => varianteDe(position.variante);
+export const geometrie = position => geometrieDe(position.variante);
+
+export function positionInitiale(idVariante = 'international') {
+    const variante = varianteDe(idVariante);
+    const geo = geometrieDe(variante.id);
+    const parCamp = (geo.cote / 2) * variante.rangeesDePieces;
+
+    const cases = new Int8Array(geo.CASES + 1);
+    for (let numero = 1; numero <= parCamp; numero++) cases[numero] = -PION;
+    for (let numero = geo.CASES - parCamp + 1; numero <= geo.CASES; numero++) cases[numero] = PION;
+
+    return { cases, trait: variante.premier, variante: variante.id };
 }
 
-export const copier = position => ({ cases: Int8Array.from(position.cases), trait: position.trait });
+export const copier = position => ({
+    cases: Int8Array.from(position.cases),
+    trait: position.trait,
+    variante: position.variante
+});
 
 export function compter(position) {
+    const geo = geometrie(position);
     const bilan = { pionsBlancs: 0, damesBlanches: 0, pionsNoirs: 0, damesNoires: 0 };
-    for (let numero = 1; numero <= CASES; numero++) {
+    for (let numero = 1; numero <= geo.CASES; numero++) {
         const piece = position.cases[numero];
         if (piece === PION) bilan.pionsBlancs++;
         else if (piece === DAME) bilan.damesBlanches++;
@@ -72,22 +91,29 @@ const creerCoup = (de, chemin, prises) => ({
 // case : une dame doit pouvoir repasser par son point de depart, et c'est le
 // genre de coup qu'on ne voit qu'en tournoi, jamais dans un moteur ecrit vite.
 
-function explorerPion(cases, camp, depart, courante, prises, chemin, sortie) {
+// Rafle d'une piece qui saute par-dessus sa voisine : tous les pions, et les
+// dames anglaises.
+//
+// Le pion couronne en cours de rafle s'arrete de lui-meme : il reste pion
+// jusqu'au bout du coup, et un pion anglais qui touche le fond n'a plus de
+// direction ou manger. Rien a ecrire pour ca.
+function explorerCourt(contexte, courante, prises, chemin, sortie, directions) {
+    const { geo, cases, camp, depart } = contexte;
     let poursuivie = false;
 
-    for (const direction of DIRECTIONS) {
-        const mangee = VOISIN[courante][direction];
+    for (const direction of directions) {
+        const mangee = geo.VOISIN[courante][direction];
         if (!mangee) continue;
         const cible = cases[mangee];
         if (cible === 0 || campDe(cible) === camp || prises.includes(mangee)) continue;
 
-        const arrivee = VOISIN[mangee][direction];
+        const arrivee = geo.VOISIN[mangee][direction];
         if (!arrivee || cases[arrivee] !== 0) continue;
 
         poursuivie = true;
         prises.push(mangee);
         chemin.push(arrivee);
-        explorerPion(cases, camp, depart, arrivee, prises, chemin, sortie);
+        explorerCourt(contexte, arrivee, prises, chemin, sortie, directions);
         chemin.pop();
         prises.pop();
     }
@@ -95,29 +121,30 @@ function explorerPion(cases, camp, depart, courante, prises, chemin, sortie) {
     if (!poursuivie && prises.length) sortie.push(creerCoup(depart, chemin, prises));
 }
 
-function explorerDame(cases, camp, depart, courante, prises, chemin, sortie) {
+// Rafle d'une dame volante : elle voit de loin, et se pose ou elle veut.
+function explorerLong(contexte, courante, prises, chemin, sortie) {
+    const { geo, cases, camp, depart } = contexte;
     let poursuivie = false;
 
     for (const direction of DIRECTIONS) {
-        const ligne = DIAGONALE[courante][direction];
+        const ligne = geo.DIAGONALE[courante][direction];
 
         let index = 0;
         while (index < ligne.length && cases[ligne[index]] === 0) index++;
         if (index >= ligne.length) continue;
 
         const mangee = ligne[index];
-        const cible = cases[mangee];
         // Piece a soi, ou piece deja mangee dans cette rafle : la diagonale est
         // fermee. C'est tout le coup turc — la prise n'est retiree du damier
         // qu'une fois la rafle finie, et elle barre la route en attendant.
-        if (campDe(cible) === camp || prises.includes(mangee)) continue;
+        if (campDe(cases[mangee]) === camp || prises.includes(mangee)) continue;
 
         for (let suivant = index + 1; suivant < ligne.length && cases[ligne[suivant]] === 0; suivant++) {
             const arrivee = ligne[suivant];
             poursuivie = true;
             prises.push(mangee);
             chemin.push(arrivee);
-            explorerDame(cases, camp, depart, arrivee, prises, chemin, sortie);
+            explorerLong(contexte, arrivee, prises, chemin, sortie);
             chemin.pop();
             prises.pop();
         }
@@ -130,25 +157,41 @@ function raflesDepuis(position, depart) {
     const piece = position.cases[depart];
     if (!piece) return [];
 
+    const variante = reglesDe(position);
+    const geo = geometrieDe(position.variante);
     const camp = campDe(piece);
+
     const cases = Int8Array.from(position.cases);
     cases[depart] = 0;                       // la case de depart se libere aussitot
 
+    const contexte = { geo, cases, camp, depart };
     const sortie = [];
-    if (estDame(piece)) explorerDame(cases, camp, depart, depart, [], [], sortie);
-    else explorerPion(cases, camp, depart, depart, [], [], sortie);
+
+    if (estDame(piece)) {
+        if (variante.dameVolante) explorerLong(contexte, depart, [], [], sortie);
+        else explorerCourt(contexte, depart, [], [], sortie, DIRECTIONS);
+        return sortie;
+    }
+
+    const directions = variante.prendEnArriere
+        ? DIRECTIONS
+        : (camp === BLANC ? AVANT_BLANC : AVANT_NOIR);
+    explorerCourt(contexte, depart, [], [], sortie, directions);
     return sortie;
 }
 
 function deplacementsDepuis(position, depart) {
     const piece = position.cases[depart];
     if (!piece) return [];
+
+    const variante = reglesDe(position);
+    const geo = geometrieDe(position.variante);
     const camp = campDe(piece);
     const coups = [];
 
-    if (estDame(piece)) {
+    if (estDame(piece) && variante.dameVolante) {
         for (const direction of DIRECTIONS) {
-            for (const arrivee of DIAGONALE[depart][direction]) {
+            for (const arrivee of geo.DIAGONALE[depart][direction]) {
                 if (position.cases[arrivee] !== 0) break;
                 coups.push(creerCoup(depart, [arrivee], []));
             }
@@ -156,23 +199,32 @@ function deplacementsDepuis(position, depart) {
         return coups;
     }
 
-    for (const direction of camp === BLANC ? AVANT_BLANC : AVANT_NOIR) {
-        const arrivee = VOISIN[depart][direction];
+    const directions = estDame(piece)
+        ? DIRECTIONS
+        : (camp === BLANC ? AVANT_BLANC : AVANT_NOIR);
+
+    for (const direction of directions) {
+        const arrivee = geo.VOISIN[depart][direction];
         if (arrivee && position.cases[arrivee] === 0) coups.push(creerCoup(depart, [arrivee], []));
     }
     return coups;
 }
 
 // Les coups legaux du camp au trait. S'il existe une prise, elle est
-// obligatoire, et seules les plus longues comptent.
+// obligatoire — et, aux internationales seulement, il faut prendre la plus
+// longue.
 export function coupsLegaux(position) {
+    const geo = geometrieDe(position.variante);
+    const majoritaire = reglesDe(position).rafleMaximale;
     const camp = position.trait;
+
     const rafles = [];
     let maximum = 0;
 
-    for (let numero = 1; numero <= CASES; numero++) {
+    for (let numero = 1; numero <= geo.CASES; numero++) {
         if (campDe(position.cases[numero]) !== camp) continue;
         for (const coup of raflesDepuis(position, numero)) {
+            if (!majoritaire) { rafles.push(coup); continue; }
             if (coup.prises.length > maximum) {
                 maximum = coup.prises.length;
                 rafles.length = 0;
@@ -181,10 +233,10 @@ export function coupsLegaux(position) {
         }
     }
 
-    if (maximum > 0) return rafles;
+    if (rafles.length) return rafles;
 
     const simples = [];
-    for (let numero = 1; numero <= CASES; numero++) {
+    for (let numero = 1; numero <= geo.CASES; numero++) {
         if (campDe(position.cases[numero]) !== camp) continue;
         simples.push(...deplacementsDepuis(position, numero));
     }
@@ -195,13 +247,18 @@ export function coupsLegaux(position) {
 // un coup pourtant valide est refuse.
 export const prisesObligatoires = position => {
     const coups = coupsLegaux(position);
-    return coups.length ? coups[0].prises.length : 0;
+    if (!coups.length) return 0;
+    return reglesDe(position).rafleMaximale
+        ? coups[0].prises.length
+        : Math.min(...coups.map(coup => coup.prises.length));
 };
 
-export const promeut = (piece, arrivee) =>
-    piece === PION ? PROMOTION_BLANC.has(arrivee)
-        : piece === -PION ? PROMOTION_NOIR.has(arrivee)
-            : false;
+export const promeut = (position, piece, arrivee) => {
+    const geo = geometrieDe(position.variante);
+    if (piece === PION) return geo.PROMOTION_BLANC.has(arrivee);
+    if (piece === -PION) return geo.PROMOTION_NOIR.has(arrivee);
+    return false;
+};
 
 export function appliquer(position, coup) {
     const cases = Int8Array.from(position.cases);
@@ -210,13 +267,13 @@ export function appliquer(position, coup) {
     cases[coup.de] = 0;
     for (const prise of coup.prises) cases[prise] = 0;
 
-    // La promotion ne se declenche qu'a l'arrivee. Un pion qui ne fait que
-    // traverser la rangee adverse au milieu d'une rafle reste un pion — sinon
-    // il finirait la rafle en dame, avec des prises qu'il n'avait pas le droit
-    // de faire.
-    cases[coup.vers] = promeut(piece, coup.vers) ? piece * DAME : piece;
+    // La promotion ne se declenche qu'a l'arrivee. Aux internationales, un pion
+    // qui ne fait que traverser la rangee adverse au milieu d'une rafle reste
+    // un pion — sinon il finirait la rafle en dame, avec des prises qu'il
+    // n'avait pas le droit de faire.
+    cases[coup.vers] = promeut(position, piece, coup.vers) ? piece * DAME : piece;
 
-    return { cases, trait: adverse(position.trait) };
+    return { cases, trait: adverse(position.trait), variante: position.variante };
 }
 
 // Perdu : plus de pieces, ou plus un seul coup. Les deux se valent aux dames,
@@ -235,8 +292,9 @@ export const noterCoup = coup => `${coup.de}${coup.prises.length ? 'x' : '-'}${c
 // Deux positions identiques au trait pres ne sont pas la meme position : la
 // repetition ne compte que si c'est au meme joueur de jouer.
 export function clef(position) {
+    const geo = geometrieDe(position.variante);
     let texte = position.trait === BLANC ? 'b' : 'n';
-    for (let numero = 1; numero <= CASES; numero++) texte += position.cases[numero] + 2;
+    for (let numero = 1; numero <= geo.CASES; numero++) texte += position.cases[numero] + 2;
     return texte;
 }
 

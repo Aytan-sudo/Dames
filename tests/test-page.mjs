@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { counter } from './harness.mjs';
 import { PALETTES, MODES } from '../js/themes.js';
 import { NIVEAUX } from '../js/ia.js';
+import { VARIANTES } from '../js/variantes.js';
 
 const { check, report } = counter();
 console.log('\nPage\n');
@@ -40,7 +41,7 @@ const charges = modulesCharges('app.js');
 const tous = readdirSync(join(racine, 'js')).filter(nom => nom.endsWith('.js'));
 
 check('la page charge le moteur, la saisie et l adversaire',
-    ['regles.js', 'damier.js', 'partie.js', 'selection.js', 'ia.js', 'rendu.js', 'entree.js']
+    ['regles.js', 'damier.js', 'variantes.js', 'partie.js', 'selection.js', 'ia.js', 'rendu.js', 'entree.js']
         .every(nom => charges.has(nom)));
 check('aucun module du dossier n est orphelin',
     tous.every(nom => charges.has(nom)), tous.filter(nom => !charges.has(nom)).join(' '));
@@ -117,6 +118,18 @@ check('le script en tete de page lit la meme cle que le stockage',
     page.includes("localStorage.getItem('dames.preferences')"));
 check('les trois modes et les trois niveaux sont proposes',
     MODES.length === 3 && NIVEAUX.length === 3);
+
+// --- Variantes ------------------------------------------------------------
+
+check('les deux jeux sont proposes dans les reglages',
+    page.includes('id="segments-variante"') && VARIANTES.length === 2);
+check('chaque variante a sa section de regles dans l aide',
+    VARIANTES.every(variante => page.includes(`data-variante="${variante.id}"`)),
+    VARIANTES.map(variante => variante.id).join(' '));
+check('chaque variante se resume en une phrase',
+    VARIANTES.every(variante => variante.resume?.length > 40));
+check('la feuille de style s adapte a la taille du damier',
+    style.includes('repeat(var(--cote, 10), 1fr)') && style.includes('calc(100% / var(--cote, 10))'));
 
 // --- Geste ----------------------------------------------------------------
 

@@ -92,6 +92,10 @@
 <dialog id="dialogue-reglages" class="feuille">
     <h2>Réglages</h2>
 
+    <h3>Jeu</h3>
+    <div class="segments" id="segments-variante" role="group" aria-label="Variante de dames"></div>
+    <p class="explication" id="explication-variante"></p>
+
     <h3>Adversaire</h3>
     <div class="segments" id="segments-adversaire" role="group" aria-label="Adversaire"></div>
 
@@ -101,7 +105,7 @@
 
         <h3>Votre camp</h3>
         <div class="segments" id="segments-camp" role="group" aria-label="Camp joué"></div>
-        <p class="explication">Les blancs ouvrent la partie. Changer de camp ou de niveau relance une partie.</p>
+        <p class="explication" id="explication-camp"></p>
     </div>
 
     <h3>Thème</h3>
@@ -136,7 +140,9 @@
 </dialog>
 
 <dialog id="dialogue-aide" class="feuille">
-    <h2>Les dames internationales</h2>
+    <h2 id="aide-titre">Les dames internationales</h2>
+
+<div data-variante="international">
     <p>Damier de 10×10, vingt pions chacun, les blancs commencent. Le pion avance d'une case en diagonale, toujours vers l'avant. Le premier qui ne peut plus jouer&nbsp;— parce qu'il n'a plus de pièces, ou parce qu'elles sont toutes bloquées&nbsp;— a perdu.</p>
 
     <h3>La prise</h3>
@@ -147,6 +153,20 @@
     <h3>La dame</h3>
     <p>Un pion qui <em>s'arrête</em> sur la dernière rangée devient dame. S'il ne fait que la traverser au milieu d'une rafle, il reste pion.</p>
     <p>La dame glisse sur toute la diagonale, prend de loin, et se pose où elle veut derrière la pièce mangée&nbsp;— puis continue si elle le peut.</p>
+
+</div>
+
+<div data-variante="anglaise">
+    <p>Damier de 8×8, douze pions chacun, et ce sont les <strong>noirs</strong> qui commencent&nbsp;— c'est la règle anglaise. Le pion avance d'une case en diagonale, toujours vers l'avant. Le premier qui ne peut plus jouer a perdu.</p>
+
+    <h3>La prise</h3>
+    <p>Elle est <strong>obligatoire, mais libre</strong>&nbsp;: si plusieurs prises sont possibles, on choisit celle qu'on veut, même la plus courte. C'est toute la différence avec le jeu international, et elle change la partie&nbsp;: on ne peut plus forcer l'adversaire dans une rafle, seulement lui tendre des pièges qu'il est libre de ne pas mordre.</p>
+    <p>Le pion ne saute que <strong>vers l'avant</strong>. Il enchaîne tant qu'il peut prendre, et les pièces mangées ne quittent le damier qu'à la fin de la rafle.</p>
+
+    <h3>La dame</h3>
+    <p>Un pion qui atteint la dernière rangée est couronné, et <strong>le coup s'arrête là</strong>&nbsp;: même s'il pouvait continuer à manger, il attendra le tour suivant.</p>
+    <p>La dame se déplace et prend d'<strong>une seule case</strong>, mais dans les quatre directions.</p>
+</div>
 
     <h3>Jouer un coup</h3>
     <p>Touchez votre pièce, puis la case où elle va. Pour une rafle, touchez chaque case d'arrivée l'une après l'autre&nbsp;; quand une seule rafle reste possible, elle part d'un coup.</p>

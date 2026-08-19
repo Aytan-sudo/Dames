@@ -259,7 +259,9 @@ main {
 
 .damier {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    /* Huit cases de cote ou dix, selon la variante : js/rendu.js pose --cote
+     * sur le plateau, la grille et les pieces s'y accordent toutes seules. */
+    grid-template-columns: repeat(var(--cote, 10), 1fr);
     width: 100%;
     aspect-ratio: 1;
     border-radius: 4px;
@@ -327,8 +329,8 @@ body.avec-numeros .numero { opacity: 1; }
     position: absolute;
     top: 0;
     left: 0;
-    width: 10%;
-    height: 10%;
+    width: calc(100% / var(--cote, 10));
+    height: calc(100% / var(--cote, 10));
     display: grid;
     place-items: center;
     border-radius: 50%;

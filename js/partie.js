@@ -18,7 +18,9 @@ import {
 export const DEMI_COUPS_STERILES = 50;
 
 // Finales bloquees : contre une dame seule, trois pieces ont seize coups pour
-// conclure, deux en ont cinq. Au-dela, la defense a tenu et c'est nul.
+// conclure, deux en ont cinq. Au-dela, la defense a tenu et c'est nul. La regle
+// vient du jeu international ; elle est appliquee aux deux, parce qu'une finale
+// qui tourne en rond est aussi penible sur un damier de huit.
 export const FINALE_LONGUE = 32;
 export const FINALE_COURTE = 10;
 
@@ -30,8 +32,8 @@ export const MOTIFS = {
     abandon: 'abandon'
 };
 
-export function creerPartie() {
-    const position = positionInitiale();
+export function creerPartie(variante = 'international') {
+    const position = positionInitiale(variante);
     return {
         position,
         debut: copier(position),
@@ -47,6 +49,8 @@ export function creerPartie() {
 export const coupsLegaux = partie => (partie.resultat ? [] : coupsDeLaPosition(partie.position));
 
 export const trait = partie => partie.position.trait;
+
+export const varianteDeLaPartie = partie => partie.position.variante;
 
 // Une finale qui ne peut plus rien produire : une dame seule contre deux ou
 // trois pieces. C'est au camp en surnombre de conclure, et c'est donc son
@@ -153,6 +157,7 @@ export const bilan = partie => compter(partie.position);
 
 export const serialiser = partie => ({
     version: 1,
+    variante: partie.position.variante,
     coups: partie.historique.map(({ coup }) => [coup.de, coup.chemin, coup.prises]),
     resultat: partie.resultat
 });
@@ -160,7 +165,7 @@ export const serialiser = partie => ({
 export function relire(donnees) {
     if (!donnees || donnees.version !== 1 || !Array.isArray(donnees.coups)) return null;
 
-    const partie = creerPartie();
+    const partie = creerPartie(donnees.variante);
     for (const [de, chemin, prises] of donnees.coups) {
         const rejoue = jouer(partie, { de, vers: chemin[chemin.length - 1], chemin, prises });
         if (!rejoue) return null;

@@ -9,6 +9,7 @@ const CLE_STATS = 'dames.stats';
 const CLE_PARTIE = 'dames.partie';
 
 export const PREFERENCES_PAR_DEFAUT = {
+    variante: 'international', // 'international' (10×10) ou 'anglaise' (8×8)
     mode: 'auto',              // theme clair, sombre, ou celui du systeme
     palette: 'bois',
     adversaire: 'ordinateur',  // 'ordinateur' ou 'humain'
@@ -43,11 +44,12 @@ export const enregistrerPreferences = preferences => ecrire(CLE_PREFERENCES, pre
 
 export const chargerStats = () => lire(CLE_STATS, {});
 
-// Une ligne de statistiques par adversaire : gagner contre le niveau facile et
-// gagner contre le difficile ne racontent pas la meme partie, les melanger
-// rendrait le tableau muet.
-export const cleStats = preferences =>
-    preferences.adversaire === 'humain' ? 'humain' : `ordinateur.${preferences.niveau}`;
+// Une ligne de statistiques par variante et par adversaire : gagner contre le
+// niveau facile et gagner contre le difficile ne racontent pas la meme partie,
+// et une victoire aux anglaises n'est pas une victoire aux internationales.
+// Tout melanger rendrait le tableau muet.
+export const cleStats = preferences => `${preferences.variante ?? 'international'}.`
+    + (preferences.adversaire === 'humain' ? 'humain' : `ordinateur.${preferences.niveau}`);
 
 export const statsDe = (stats, cle) => stats[cle] ?? { victoires: 0, defaites: 0, nulles: 0 };
 

@@ -7,7 +7,7 @@
 // Le nom du cache porte le numero de version : une version publiee sans le
 // changer resterait invisible pour ceux qui ont installe le jeu.
 
-const VERSION = 'dames-1.0.0';
+const VERSION = 'dames-1.1.0';
 
 const COQUILLE = [
     './',
@@ -25,6 +25,7 @@ const COQUILLE = [
     'js/storage.js',
     'js/themes.js',
     'js/ui.js',
+    'js/variantes.js',
     'assets/icon.svg',
     'assets/icon-192.png',
     'assets/icon-512.png'

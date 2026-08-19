@@ -2,10 +2,12 @@
 // jeu qui a l'air de marcher et qui interdit un coup sur dix.
 
 import { counter } from './harness.mjs';
-import {
+import { geometrieDe } from '../js/variantes.js';
+
+const {
     CASES, VOISIN, DIAGONALE, caseEn, rangeeDe, colonneDe,
     PROMOTION_BLANC, PROMOTION_NOIR, AU_BORD, rangeeAvance
-} from '../js/damier.js';
+} = geometrieDe('international');
 
 const { check, report } = counter();
 console.log('\nDamier\n');

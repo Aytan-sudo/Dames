@@ -14,8 +14,11 @@
 //     — un bruit ajoute a l'evaluation. Une machine qui voit tout a deux coups
 //     et rien au troisieme est desagreable a jouer : elle ne rate que ce qui
 //     est loin, donc elle ne rate jamais rien de ce que le debutant tente.
+//
+// Les tables d'evaluation dependent du damier : elles sont calculees une fois
+// par variante, a la premiere partie qui en a besoin.
 
-import { CASES, rangeeAvance, colonneDe, AU_BORD } from './damier.js';
+import { geometrieDe, varianteDe } from './variantes.js';
 import { BLANC, NOIR, PION, DAME, coupsLegaux, appliquer, campDe, estDame } from './regles.js';
 
 export const NIVEAUX = [
@@ -30,34 +33,52 @@ const VALEUR_PION = 100;
 const VALEUR_DAME = 310;
 const MAT = 100000;
 
-// Ce que vaut une rangee gagnee. Progressif : les trois premiers pas ne
-// changent rien a la partie, le dernier est presque une dame.
-const AVANCE = [0, 1, 3, 5, 8, 12, 17, 24, 34, 34];
+const tablesParVariante = new Map();
 
-// Le centre vaut mieux que le bord pour un pion — plus de cases atteignables,
-// plus de menaces. Le bord, lui, est imprenable : c'est un autre genre de
-// valeur, comptee a part.
-const CENTRE = (() => {
-    const table = new Int8Array(CASES + 1);
-    for (let numero = 1; numero <= CASES; numero++) {
-        const colonne = colonneDe(numero);
-        table[numero] = 4 - Math.abs(colonne - 4.5) | 0;
+function tablesDe(idVariante) {
+    const connue = tablesParVariante.get(idVariante);
+    if (connue) return connue;
+
+    const variante = varianteDe(idVariante);
+    const geo = geometrieDe(idVariante);
+
+    // Ce que vaut une rangee gagnee, en progression : les premiers pas ne
+    // changent rien a la partie, le dernier vaut presque une dame.
+    const avance = Array.from({ length: geo.cote }, (_, rangee) =>
+        Math.round(34 * Math.min(1, rangee / (geo.cote - 2)) ** 2));
+
+    // Le centre vaut mieux que le bord pour un pion — plus de cases
+    // atteignables, plus de menaces. Le bord, lui, est imprenable : c'est un
+    // autre genre de valeur, comptee a part.
+    const centre = new Int8Array(geo.CASES + 1);
+    const milieu = (geo.cote - 1) / 2;
+    for (let numero = 1; numero <= geo.CASES; numero++) {
+        centre[numero] = Math.trunc(milieu - Math.abs(geo.colonneDe(numero) - milieu)) / 2 | 0;
     }
-    return table;
-})();
 
-// Les cinq cases du fond. Les garder empeche l'adversaire d'y faire dame, et
-// c'est la seule raison de ne pas les avancer.
-const FOND_BLANC = new Set([46, 47, 48, 49, 50]);
-const FOND_NOIR = new Set([1, 2, 3, 4, 5]);
+    const tables = {
+        geo,
+        avance,
+        centre,
+        // Les cases du fond. Les garder empeche l'adversaire d'y faire dame, et
+        // c'est la seule raison de ne pas les avancer.
+        fondBlanc: geo.PROMOTION_NOIR,
+        fondNoir: geo.PROMOTION_BLANC,
+        piecesAuDepart: geo.cote * variante.rangeesDePieces
+    };
+
+    tablesParVariante.set(idVariante, tables);
+    return tables;
+}
 
 // Positif : les blancs sont mieux.
 export function evaluer(position) {
+    const { geo, avance, centre, fondBlanc, fondNoir, piecesAuDepart } = tablesDe(position.variante);
     let score = 0;
     let pieces = 0;
     let materiel = 0;
 
-    for (let numero = 1; numero <= CASES; numero++) {
+    for (let numero = 1; numero <= geo.CASES; numero++) {
         const piece = position.cases[numero];
         if (!piece) continue;
         pieces++;
@@ -65,21 +86,21 @@ export function evaluer(position) {
         const camp = campDe(piece);
         if (estDame(piece)) {
             materiel += camp * VALEUR_DAME;
-            score += camp * (VALEUR_DAME + CENTRE[numero]);
+            score += camp * (VALEUR_DAME + centre[numero]);
             continue;
         }
 
         materiel += camp * VALEUR_PION;
-        let valeur = VALEUR_PION + AVANCE[rangeeAvance(numero, camp)] + CENTRE[numero];
-        if (AU_BORD.has(numero)) valeur += 4;
-        if (camp === BLANC ? FOND_BLANC.has(numero) : FOND_NOIR.has(numero)) valeur += 6;
+        let valeur = VALEUR_PION + avance[geo.rangeeAvance(numero, camp)] + centre[numero];
+        if (geo.AU_BORD.has(numero)) valeur += 4;
+        if (camp === BLANC ? fondBlanc.has(numero) : fondNoir.has(numero)) valeur += 6;
         score += camp * valeur;
     }
 
     // Qui mene a interet aux echanges : a materiel egal en proportion, moins il
     // reste de pieces, plus l'avance est decisive. Sans ce terme la machine
     // gagne un pion puis refuse tous les echanges qui le concretiseraient.
-    if (materiel !== 0) score += Math.trunc((materiel * (40 - pieces)) / 60);
+    if (materiel !== 0) score += Math.trunc((materiel * (piecesAuDepart - pieces)) / 60);
 
     return score;
 }

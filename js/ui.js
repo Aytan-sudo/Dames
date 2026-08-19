@@ -4,15 +4,16 @@
 // partie et ne touche jamais un element a la main.
 
 import { NIVEAUX } from './ia.js';
+import { VARIANTES, varianteDe } from './variantes.js';
 import { MODES, PALETTES, modeEffectif } from './themes.js';
-import { statsDe } from './storage.js';
+import { statsDe, cleStats } from './storage.js';
 import { BLANC, NOIR } from './regles.js';
 
 // Le numero de version, montre dans les reglages. Il doit s'accorder avec
 // package.json et avec le cache du service worker — sans quoi une correction
 // publiee n'atteint jamais ceux qui ont installe le jeu, et personne ne peut
 // dire quelle version il a sous les yeux. Un test verifie les trois.
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 const $ = id => document.getElementById(id);
 
@@ -39,10 +40,13 @@ export const elements = {
     finFermer: $('fin-fermer'),
     finRejouer: $('fin-rejouer'),
     dialogueReglages: $('dialogue-reglages'),
+    segmentsVariante: $('segments-variante'),
+    explicationVariante: $('explication-variante'),
     blocOrdinateur: $('bloc-ordinateur'),
     segmentsAdversaire: $('segments-adversaire'),
     segmentsNiveau: $('segments-niveau'),
     segmentsCamp: $('segments-camp'),
+    explicationCamp: $('explication-camp'),
     segmentsMode: $('segments-mode'),
     pastillesPalette: $('pastilles-palette'),
     optionIndices: $('option-indices'),
@@ -51,7 +55,8 @@ export const elements = {
     stats: $('stats'),
     version: $('version'),
     effacerStats: $('effacer-stats'),
-    dialogueAide: $('dialogue-aide')
+    dialogueAide: $('dialogue-aide'),
+    aideTitre: $('aide-titre')
 };
 
 const ADVERSAIRES = [
@@ -81,6 +86,8 @@ function remplirSegments(groupe, entrees, cle, surChoix, decorer) {
 }
 
 export function construireReglages(actions) {
+    remplirSegments(elements.segmentsVariante, VARIANTES, 'variante', actions.surVariante,
+        (bouton, variante) => { bouton.innerHTML = `${variante.libelle}<small>${variante.court}</small>`; });
     remplirSegments(elements.segmentsAdversaire, ADVERSAIRES, 'adversaire', actions.surAdversaire);
     remplirSegments(elements.segmentsNiveau, NIVEAUX, 'niveau', actions.surNiveau);
     remplirSegments(elements.segmentsCamp, CAMPS, 'camp', actions.surCamp);
@@ -109,11 +116,29 @@ const marquer = (groupe, cle, valeur) => {
 };
 
 export function majReglages(preferences) {
+    const variante = varianteDe(preferences.variante);
+    marquer(elements.segmentsVariante, 'variante', variante.id);
+    elements.explicationVariante.textContent = variante.resume;
+
+    // L'aide raconte le jeu qu'on joue, pas les deux : deux pages de regles
+    // dont une ne s'applique pas, c'est une page de trop.
+    elements.aideTitre.textContent = `Les dames ${variante.libelle.toLowerCase()}`;
+    for (const bloc of elements.dialogueAide.querySelectorAll('[data-variante]')) {
+        bloc.hidden = bloc.dataset.variante !== variante.id;
+    }
+
     marquer(elements.segmentsAdversaire, 'adversaire', preferences.adversaire);
     marquer(elements.segmentsNiveau, 'niveau', preferences.niveau);
     marquer(elements.segmentsCamp, 'camp', preferences.camp);
     marquer(elements.segmentsMode, 'mode', preferences.mode);
     marquer(elements.pastillesPalette, 'palette', preferences.palette);
+
+    // Qui ouvre depend du jeu : les blancs aux internationales, les noirs aux
+    // anglaises. Choisir son camp, c'est donc aussi choisir de jouer en premier
+    // ou en second, et il vaut mieux le dire.
+    elements.explicationCamp.textContent =
+        `Les ${variante.premier === BLANC ? 'blancs' : 'noirs'} ouvrent la partie. `
+        + 'Changer de camp, de niveau ou de jeu relance une partie.';
 
     elements.blocOrdinateur.hidden = preferences.adversaire !== 'ordinateur';
     elements.optionIndices.checked = preferences.indices;
@@ -142,24 +167,28 @@ export function majPendules(bilan, trait, preferences, occupe) {
     elements.campNoirs.classList.toggle('reflechit', occupe && trait === NOIR);
 }
 
+// Le tableau ne montre que la variante en cours : huit lignes dont quatre sans
+// rapport avec la partie qu'on vient de jouer, personne ne les lirait.
 export function majStats(stats, preferences) {
+    const variante = preferences.variante ?? 'international';
     const lignes = [
-        ...NIVEAUX.map(niveau => [`Ordinateur · ${niveau.libelle.toLowerCase()}`, `ordinateur.${niveau.id}`]),
-        ['Deux joueurs', 'humain']
+        ...NIVEAUX.map(niveau => [`Ordinateur · ${niveau.libelle.toLowerCase()}`, `${variante}.ordinateur.${niveau.id}`]),
+        ['Deux joueurs', `${variante}.humain`]
     ];
 
     const contenu = [];
     for (const [libelle, cle] of lignes) {
         const ligne = statsDe(stats, cle);
         const parties = ligne.victoires + ligne.defaites + ligne.nulles;
+        const humaine = cle.endsWith('.humain');
         const terme = document.createElement('dt');
         terme.textContent = libelle;
         const valeur = document.createElement('dd');
         valeur.textContent = !parties ? '—'
-            : cle === 'humain'
+            : humaine
                 ? `${ligne.victoires} blancs · ${ligne.defaites} noirs · ${ligne.nulles} nulles`
                 : `${ligne.victoires} V · ${ligne.defaites} D · ${ligne.nulles} N`;
-        if (cle === (preferences.adversaire === 'humain' ? 'humain' : `ordinateur.${preferences.niveau}`)) {
+        if (cle === cleStats(preferences)) {
             terme.classList.add('courante');
             valeur.classList.add('courante');
         }

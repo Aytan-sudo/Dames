@@ -8,6 +8,7 @@ import { BLANC, NOIR, campDe, nomCamp } from './regles.js';
 import * as P from './partie.js';
 import { departs, suites, prisesEnCours, avancer } from './selection.js';
 import { creerRendu } from './rendu.js';
+import { geometrieDe } from './variantes.js';
 import { ecouterDamier, ecouterClavier } from './entree.js';
 import { choisirCoup } from './ia.js';
 import { appliquer as appliquerTheme, modeSuivant } from './themes.js';
@@ -24,7 +25,11 @@ let partie = P.creerPartie();
 let selection = { depart: 0, etapes: [] };
 let occupe = false;            // une animation ou l'ordinateur est en cours
 
-const rendu = creerRendu({ damier: ui.elements.damier, couche: ui.elements.pieces });
+const rendu = creerRendu({
+    plateau: ui.elements.plateau,
+    damier: ui.elements.damier,
+    couche: ui.elements.pieces
+});
 
 const soloEnCours = () => preferences.adversaire === 'ordinateur';
 const campDuJoueur = () => (preferences.camp === 'blancs' ? BLANC : NOIR);
@@ -75,9 +80,10 @@ function raconterLeTour() {
 // --- Deroulement ----------------------------------------------------------
 
 function nouvellePartie() {
-    partie = P.creerPartie();
+    partie = P.creerPartie(preferences.variante);
     selection = { depart: 0, etapes: [] };
     occupe = false;
+    rendu.poser(geometrieDe(preferences.variante));
     rendu.dessiner(partie.position);
     rafraichir();
     raconterLeTour();
@@ -259,6 +265,7 @@ function changer(modifications, relancer = false) {
 
 function brancher() {
     ui.construireReglages({
+        surVariante: variante => changer({ variante }, true),
         surAdversaire: adversaire => changer({ adversaire }, true),
         surNiveau: niveau => changer({ niveau }, true),
         surCamp: camp => changer({ camp }, true),
@@ -325,7 +332,8 @@ function reprendre() {
     // Une partie commencee contre l'ordinateur en blancs n'a plus de sens si
     // les reglages ont change depuis : on la laisse tomber plutot que de la
     // reprendre avec un adversaire qui n'est pas le sien.
-    if (sauvegarde.adversaire !== preferences.adversaire
+    if (sauvegarde.variante !== preferences.variante
+        || sauvegarde.adversaire !== preferences.adversaire
         || (sauvegarde.adversaire === 'ordinateur'
             && (sauvegarde.niveau !== preferences.niveau || sauvegarde.camp !== preferences.camp))) {
         return false;
@@ -335,6 +343,7 @@ function reprendre() {
     if (!reprise) return false;
 
     partie = reprise;
+    rendu.poser(geometrieDe(partie.position.variante));
     rendu.dessiner(partie.position);
     rafraichir();
     if (partie.resultat) { partie.enregistree = true; afficherFin(); }

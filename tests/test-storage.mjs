@@ -63,10 +63,17 @@ memoire.delete('dames.preferences');
 check('une ligne de statistiques part de zero',
     JSON.stringify(statsDe(chargerStats(), 'ordinateur.normal')) === '{"victoires":0,"defaites":0,"nulles":0}');
 
-check('chaque niveau a sa ligne',
-    cleStats({ adversaire: 'ordinateur', niveau: 'facile' }) === 'ordinateur.facile'
-    && cleStats({ adversaire: 'ordinateur', niveau: 'difficile' }) === 'ordinateur.difficile'
-    && cleStats({ adversaire: 'humain', niveau: 'difficile' }) === 'humain');
+// Chaque variante, chaque niveau : une victoire aux anglaises contre le niveau
+// facile n'a rien a voir avec une victoire aux internationales en difficile.
+check('chaque variante et chaque niveau ont leur ligne',
+    cleStats({ variante: 'international', adversaire: 'ordinateur', niveau: 'facile' }) === 'international.ordinateur.facile'
+    && cleStats({ variante: 'anglaise', adversaire: 'ordinateur', niveau: 'difficile' }) === 'anglaise.ordinateur.difficile'
+    && cleStats({ variante: 'anglaise', adversaire: 'humain', niveau: 'facile' }) === 'anglaise.humain');
+
+check('une preference sans variante retombe sur les internationales',
+    cleStats({ adversaire: 'humain' }) === 'international.humain');
+
+check('le jeu demarre sur les internationales', PREFERENCES_PAR_DEFAUT.variante === 'international');
 
 enregistrerFin('ordinateur.normal', 'victoire');
 enregistrerFin('ordinateur.normal', 'victoire');
