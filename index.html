@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Dames</title>
+<meta name="description" content="Les dames internationales 10×10 : prise majoritaire, dame volante, contre l'ordinateur ou à deux sur le même écran. Jouable au doigt, hors ligne.">
+<meta name="theme-color" content="#8f5c33" id="couleur-barre">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="stylesheet" href="css/style.css">
+<script>
+    // Pose le theme et la palette avant le premier rendu. Charges par app.js,
+    // ils arriveraient apres coup et le damier changerait de couleur sous les
+    // yeux du joueur a chaque ouverture.
+    try {
+        const enregistrees = JSON.parse(localStorage.getItem('dames.preferences') || '{}');
+        // Liste blanche : ces valeurs viennent du stockage et atterrissent
+        // dans des attributs. « auto » ne pose rien, la feuille de style suit
+        // alors le systeme.
+        if (enregistrees.mode === 'clair' || enregistrees.mode === 'sombre') {
+            document.documentElement.dataset.mode = enregistrees.mode;
+        }
+        if (/^[a-z]{4,8}$/.test(enregistrees.palette || '')) {
+            document.documentElement.dataset.palette = enregistrees.palette;
+        }
+    } catch { /* stockage indisponible : palette et theme par defaut */ }
+</script>
+</head>
+<body>
+
+<header class="barre">
+    <button type="button" class="icone" id="bouton-aide" aria-label="Règles du jeu">?</button>
+    <h1>Dames</h1>
+    <div class="actions">
+        <button type="button" class="icone" id="bouton-mode" aria-label="Changer de thème">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="8.6"/>
+                <path d="M12 3.4a8.6 8.6 0 0 0 0 17.2Z" class="moitie"/>
+            </svg>
+        </button>
+        <button type="button" class="icone" id="bouton-reglages" aria-label="Réglages">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="plein">
+                <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.4 3.5c0 .5-.05.98-.13 1.45l2.05 1.6-2 3.46-2.42-.98a8.2 8.2 0 0 1-2.5 1.45L15 21.9H11l-.4-2.92a8.2 8.2 0 0 1-2.5-1.45l-2.42.98-2-3.46 2.05-1.6a8.6 8.6 0 0 1 0-2.9L3.68 8.95l2-3.46 2.42.98a8.2 8.2 0 0 1 2.5-1.45L11 2.1h4l.4 2.92c.9.33 1.74.82 2.5 1.45l2.42-.98 2 3.46-2.05 1.6c.08.47.13.95.13 1.45Z"/>
+            </svg>
+        </button>
+    </div>
+</header>
+
+<div class="pendules">
+    <div class="camp noire" id="camp-noirs">
+        <span class="jeton" aria-hidden="true"></span>
+        <span class="qui" id="nom-noirs">Noirs</span>
+        <span class="reste" id="reste-noirs">20</span>
+    </div>
+    <div class="camp blanche" id="camp-blancs">
+        <span class="reste" id="reste-blancs">20</span>
+        <span class="qui" id="nom-blancs">Blancs</span>
+        <span class="jeton" aria-hidden="true"></span>
+    </div>
+</div>
+
+<main>
+    <div class="plateau" id="plateau">
+        <div class="damier" id="damier" aria-label="Damier"></div>
+        <div class="pieces" id="pieces" aria-hidden="true"></div>
+    </div>
+    <p class="annonce" id="annonce" role="status" aria-live="polite"></p>
+</main>
+
+<footer class="outils">
+    <button type="button" class="bouton" id="bouton-annuler">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 9h10.5a5.5 5.5 0 1 1 0 11H8M4 9l4.5-4.5M4 9l4.5 4.5"/>
+        </svg>
+        Annuler
+    </button>
+    <button type="button" class="bouton primaire" id="bouton-nouvelle">Nouvelle partie</button>
+</footer>
+
+<dialog id="dialogue-fin" class="feuille">
+    <h2 id="fin-titre"></h2>
+    <p id="fin-detail" class="detail"></p>
+    <div class="pied">
+        <button type="button" class="bouton" id="fin-annuler">Reprendre le coup</button>
+        <button type="button" class="bouton" id="fin-fermer">Voir le damier</button>
+        <button type="button" class="bouton primaire" id="fin-rejouer">Rejouer</button>
+    </div>
+</dialog>
+
+<dialog id="dialogue-reglages" class="feuille">
+    <h2>Réglages</h2>
+
+    <h3>Adversaire</h3>
+    <div class="segments" id="segments-adversaire" role="group" aria-label="Adversaire"></div>
+
+    <div id="bloc-ordinateur">
+        <h3>Niveau</h3>
+        <div class="segments" id="segments-niveau" role="group" aria-label="Niveau de l'ordinateur"></div>
+
+        <h3>Votre camp</h3>
+        <div class="segments" id="segments-camp" role="group" aria-label="Camp joué"></div>
+        <p class="explication">Les blancs ouvrent la partie. Changer de camp ou de niveau relance une partie.</p>
+    </div>
+
+    <h3>Thème</h3>
+    <div class="segments" id="segments-mode" role="group" aria-label="Thème clair ou sombre"></div>
+
+    <h3>Couleurs</h3>
+    <div class="pastilles" id="pastilles-palette" role="group" aria-label="Couleurs du damier"></div>
+
+    <h3>Confort</h3>
+    <label class="option">
+        <input type="checkbox" id="option-indices">
+        <span><strong>Montrer les coups possibles</strong><small>Les cases jouables s'allument. La prise étant obligatoire, elles sont parfois peu nombreuses.</small></span>
+    </label>
+    <label class="option">
+        <input type="checkbox" id="option-numeros">
+        <span><strong>Numéroter les cases</strong><small>La numérotation officielle, de 1 à 50, celle qui sert à noter les parties.</small></span>
+    </label>
+    <label class="option">
+        <input type="checkbox" id="option-vibration">
+        <span><strong>Vibration</strong><small>Un retour tactile sur les prises et la fin de partie.</small></span>
+    </label>
+
+    <h3>Parties</h3>
+    <dl class="stats" id="stats"></dl>
+
+    <p class="version" id="version"></p>
+
+    <div class="pied">
+        <button type="button" class="bouton danger" id="effacer-stats">Effacer</button>
+        <button type="button" class="bouton primaire" data-fermer>Jouer</button>
+    </div>
+</dialog>
+
+<dialog id="dialogue-aide" class="feuille">
+    <h2>Les dames internationales</h2>
+    <p>Damier de 10×10, vingt pions chacun, les blancs commencent. Le pion avance d'une case en diagonale, toujours vers l'avant. Le premier qui ne peut plus jouer&nbsp;— parce qu'il n'a plus de pièces, ou parce qu'elles sont toutes bloquées&nbsp;— a perdu.</p>
+
+    <h3>La prise</h3>
+    <p>Elle est <strong>obligatoire</strong>. Le pion saute par-dessus une pièce adverse et se pose derrière, dans <strong>n'importe quelle direction, y compris en arrière</strong>, et il enchaîne tant qu'il peut prendre.</p>
+    <p>Quand plusieurs prises sont possibles, il faut jouer <strong>la plus longue</strong>&nbsp;: c'est la prise majoritaire. Une dame ne vaut pas plus qu'un pion dans ce décompte, seul le nombre compte. C'est là toute la saveur du jeu&nbsp;— on donne une pièce pour forcer une rafle qui en rendra trois.</p>
+    <p>Les pièces mangées ne quittent le damier qu'à la fin de la rafle. On ne repasse jamais deux fois sur la même, et elles barrent le passage jusqu'au bout.</p>
+
+    <h3>La dame</h3>
+    <p>Un pion qui <em>s'arrête</em> sur la dernière rangée devient dame. S'il ne fait que la traverser au milieu d'une rafle, il reste pion.</p>
+    <p>La dame glisse sur toute la diagonale, prend de loin, et se pose où elle veut derrière la pièce mangée&nbsp;— puis continue si elle le peut.</p>
+
+    <h3>Jouer un coup</h3>
+    <p>Touchez votre pièce, puis la case où elle va. Pour une rafle, touchez chaque case d'arrivée l'une après l'autre&nbsp;; quand une seule rafle reste possible, elle part d'un coup.</p>
+
+    <h3>Nulles</h3>
+    <p>Trois fois la même position, vingt-cinq coups de dames sans prise ni mouvement de pion, ou une finale à trois contre une dame qui s'éternise&nbsp;: la partie est nulle.</p>
+
+    <h3>Raccourcis</h3>
+    <p><kbd>N</kbd> nouvelle partie · <kbd>U</kbd> ou <kbd>Ctrl</kbd>+<kbd>Z</kbd> annuler · <kbd>T</kbd> thème · <kbd>R</kbd> réglages</p>
+
+    <div class="pied">
+        <button type="button" class="bouton primaire" data-fermer>Jouer</button>
+    </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

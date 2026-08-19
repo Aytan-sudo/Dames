@@ -1,0 +1,566 @@
+/* Dames — habillage.
+ *
+ * Le damier est une grille de cent cases ; les pieces vivent dans une couche
+ * au-dessus, placees par `transform` en pourcentage de leur propre taille. Une
+ * piece qui se deplace ne change donc que deux variables, et la transition
+ * fait le glissement sans toucher a la mise en page.
+ *
+ * Les couleurs de chaque palette sont ecrites ici plutot que posees par le
+ * JavaScript : le petit script en tete de page peut alors retablir la palette
+ * du joueur avant le premier rendu. js/themes.js tient la meme liste pour les
+ * pastilles des reglages, et un test refuse de laisser les deux diverger.
+ */
+
+:root {
+    color-scheme: light dark;
+
+    /* Palette par defaut : bois. */
+    --case-claire: #e8d3ac;
+    --case-sombre: #8f5c33;
+    --pion-clair: #f6ead6;
+    --pion-fonce: #2f2622;
+    --accent: #b5793f;
+
+    --fond: #f4efe6;
+    --panneau: #fffdf9;
+    --encre: #23201c;
+    --encre-faible: #6d675f;
+    --bandeau: var(--case-sombre);
+    --bandeau-encre: #fdf8f1;
+    --cadre: color-mix(in srgb, var(--case-sombre) 74%, #120c07);
+    --trait: color-mix(in srgb, var(--encre) 14%, transparent);
+
+    --duree: 200ms;
+    --rayon: 14px;
+}
+
+:root[data-palette="foret"] {
+    --case-claire: #e6e6cf;
+    --case-sombre: #3f6b4a;
+    --pion-clair: #f7f4e6;
+    --pion-fonce: #20302a;
+    --accent: #4f8a5e;
+}
+
+:root[data-palette="ardoise"] {
+    --case-claire: #d6dae0;
+    --case-sombre: #4d5762;
+    --pion-clair: #f2f5f8;
+    --pion-fonce: #23282f;
+    --accent: #7d8b9c;
+}
+
+:root[data-palette="encre"] {
+    --case-claire: #ced8e8;
+    --case-sombre: #31456b;
+    --pion-clair: #eef3fb;
+    --pion-fonce: #1b2233;
+    --accent: #5b7bb5;
+}
+
+:root[data-palette="brique"] {
+    --case-claire: #efd9c9;
+    --case-sombre: #8c4634;
+    --pion-clair: #fbeee3;
+    --pion-fonce: #33211c;
+    --accent: #c05f45;
+}
+
+:root[data-palette="nuit"] {
+    --case-claire: #8d93a3;
+    --case-sombre: #2b2f3b;
+    --pion-clair: #e9ecf3;
+    --pion-fonce: #12151c;
+    --accent: #8f7ad6;
+}
+
+/* Le mode sombre ne retouche pas le damier lui-meme : il change la piece ou
+ * il est pose. Les cases claires sont juste baissees d'un ton, parce qu'un
+ * damier qui eclaire la chambre n'est pas un damier sombre, c'est une lampe. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-mode="clair"]) {
+        --fond: #14181f;
+        --panneau: #1c212a;
+        --encre: #eef1f6;
+        --encre-faible: #98a1af;
+        --bandeau: #1c212a;
+        --bandeau-encre: #eef1f6;
+        --case-claire: color-mix(in srgb, var(--case-claire) 84%, #05070a);
+        --case-sombre: color-mix(in srgb, var(--case-sombre) 86%, #05070a);
+        --trait: color-mix(in srgb, #eef1f6 16%, transparent);
+    }
+}
+
+:root[data-mode="sombre"] {
+    --fond: #14181f;
+    --panneau: #1c212a;
+    --encre: #eef1f6;
+    --encre-faible: #98a1af;
+    --bandeau: #1c212a;
+    --bandeau-encre: #eef1f6;
+    --case-claire: color-mix(in srgb, var(--case-claire) 84%, #05070a);
+    --case-sombre: color-mix(in srgb, var(--case-sombre) 86%, #05070a);
+    --trait: color-mix(in srgb, #eef1f6 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root { --duree: 1ms; }
+}
+
+* { box-sizing: border-box; }
+
+/* L'anneau de mise au point suit la palette. Le bleu du navigateur jure sur un
+ * damier bois, et il apparait des qu'un dialogue s'ouvre. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Un damier se tape, il ne se lit pas : le double-tap ne doit pas zoomer, ce
+ * qui arrive des qu'on joue deux coups coup sur coup. `manipulation` laisse le
+ * pincement — on ne prive personne de la loupe. */
+html, body { touch-action: manipulation; }
+
+body {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--fond);
+    color: var(--encre);
+    font: 500 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Bandeau --------------------------------------------------------------- */
+
+.barre {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    background: var(--bandeau);
+    color: var(--bandeau-encre);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.barre h1 {
+    margin: 0 auto;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.actions { display: flex; gap: 6px; }
+
+button {
+    font: inherit;
+    color: inherit;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    border-radius: 10px;
+}
+
+.icone {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    font-size: 19px;
+    line-height: 1;
+    color: inherit;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.icone:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+.icone svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.icone svg .moitie { fill: currentColor; stroke: none; }
+.icone svg.plein { fill: currentColor; stroke: none; }
+
+/* Pendules -------------------------------------------------------------- */
+
+.pendules {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px 4px;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.camp {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 14px;
+    color: var(--encre-faible);
+    border: 1px solid transparent;
+    transition: background var(--duree), color var(--duree), border-color var(--duree);
+}
+
+.camp.actif {
+    color: var(--encre);
+    background: var(--panneau);
+    border-color: var(--trait);
+}
+
+.camp .jeton {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, .35);
+}
+
+.camp.blanche .jeton { background: var(--pion-clair); }
+.camp.noire .jeton { background: var(--pion-fonce); }
+
+.camp .reste {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--encre);
+}
+
+/* Le camp qui reflechit respire : c'est la seule chose qui bouge pendant que
+ * la machine calcule, et sans elle on croit le jeu bloque. */
+.camp.reflechit { animation: souffle 1.1s ease-in-out infinite; }
+
+@keyframes souffle {
+    50% { background: color-mix(in srgb, var(--accent) 26%, var(--panneau)); }
+}
+
+/* Damier ---------------------------------------------------------------- */
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 0;
+    padding: 4px 8px;
+}
+
+.plateau {
+    position: relative;
+    /* Le damier prend ce que la page lui laisse : la largeur de l'ecran, ou sa
+     * hauteur moins les bandeaux, selon celle qui manque. */
+    width: min(100vw - 16px, 100dvh - 250px, 620px);
+    padding: clamp(5px, 1.6%, 12px);
+    background: var(--cadre);
+    border-radius: var(--rayon);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .22);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.damier {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.case {
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+
+.case.claire { background: var(--case-claire); }
+.case.sombre { background: var(--case-sombre); }
+
+.numero {
+    font-size: clamp(7px, 1.5vw, 11px);
+    font-weight: 600;
+    color: color-mix(in srgb, var(--case-claire) 55%, transparent);
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.avec-numeros .numero { opacity: 1; }
+
+/* Le dernier coup joue reste marque : sur un damier a cinquante cases, la
+ * reponse de l'ordinateur est autrement impossible a retrouver. */
+.case.trace { background: color-mix(in srgb, var(--accent) 34%, var(--case-sombre)); }
+
+/* Une piece qui peut jouer est cerclee — le cercle deborde du pion, donc il se
+ * voit malgre lui. */
+.case.depart { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 85%, white); }
+
+.case.tenue {
+    background: color-mix(in srgb, var(--accent) 62%, var(--case-sombre));
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 90%, white);
+}
+
+.case.cible::after {
+    content: "";
+    /* La hauteur se deduit de la largeur : dans une grille, un pourcentage de
+     * hauteur n'a pas toujours de reference et la pastille s'aplatit. */
+    width: 34%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 88%, white);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+    animation: apparait var(--duree) ease-out;
+}
+
+@keyframes apparait { from { transform: scale(.4); opacity: 0; } }
+
+/* Pieces ---------------------------------------------------------------- */
+
+/* La couche des pieces ne recoit aucun appui : c'est la case dessous qui les
+ * prend. Sans cela, toucher un pion viserait le pion et non la case, et la
+ * moitie des appuis tomberait a cote. */
+.pieces {
+    position: absolute;
+    inset: clamp(5px, 1.6%, 12px);
+    pointer-events: none;
+}
+
+.piece {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 10%;
+    height: 10%;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    /* Le placement et la reduction tiennent dans la meme transformation : le
+     * translate en pourcentage se lit sur la taille de la case, le scale ne
+     * fait que retrecir le pion dedans. */
+    transform: translate(calc(var(--colonne) * 100%), calc(var(--rangee) * 100%)) scale(.84);
+    transition: transform var(--duree) ease-in-out, opacity var(--duree) linear;
+    will-change: transform;
+}
+
+.piece::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--corps) 82%, white), var(--corps) 62%),
+        var(--corps);
+    box-shadow:
+        inset 0 -2px 3px color-mix(in srgb, var(--corps) 55%, black),
+        inset 0 2px 3px color-mix(in srgb, var(--corps) 60%, white),
+        0 2px 4px rgba(0, 0, 0, .35);
+}
+
+.piece.blanche { --corps: var(--pion-clair); --couronne: #b8892f; }
+.piece.noire { --corps: var(--pion-fonce); --couronne: #d9b25f; }
+
+.piece .couronne {
+    position: relative;
+    width: 52%;
+    height: 52%;
+    fill: var(--couronne);
+    opacity: 0;
+    transform: scale(.5);
+    transition: opacity var(--duree), transform var(--duree);
+}
+
+.piece.dame .couronne { opacity: 1; transform: scale(1); }
+
+/* Une dame porte un anneau en plus de sa couronne : de loin, sur un telephone,
+ * la couronne seule ne suffit pas a la distinguer. */
+.piece.dame::before {
+    box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--couronne) 70%, transparent),
+        inset 0 -2px 3px color-mix(in srgb, var(--corps) 55%, black),
+        0 2px 5px rgba(0, 0, 0, .4);
+}
+
+.piece.mobile { z-index: 2; }
+
+/* Mangee : la piece reste sur le damier jusqu'a la fin de la rafle, comme le
+ * veut la regle, mais elle s'efface pour qu'on suive le trajet. */
+.piece.mangee { opacity: .35; }
+.piece.partie { opacity: 0; transform: translate(calc(var(--colonne) * 100%), calc(var(--rangee) * 100%)) scale(.3); }
+
+/* Ce que la saisie en cours va manger, avant meme d'avoir fini la rafle. */
+.piece.condamnee { filter: grayscale(.6) brightness(.75); }
+
+.refus { animation: refus .3s ease-in-out; }
+
+@keyframes refus {
+    25% { transform: translate(calc(var(--colonne) * 100%), calc(var(--rangee) * 100%)) scale(.84) rotate(-7deg); }
+    75% { transform: translate(calc(var(--colonne) * 100%), calc(var(--rangee) * 100%)) scale(.84) rotate(7deg); }
+}
+
+.case.refus { animation: refus-case .3s ease-in-out; }
+
+@keyframes refus-case {
+    50% { background: color-mix(in srgb, #c0392b 55%, var(--case-sombre)); }
+}
+
+.annonce {
+    margin: 0;
+    min-height: 1.4em;
+    font-size: 14px;
+    color: var(--encre-faible);
+    text-align: center;
+}
+
+/* Barre d'outils -------------------------------------------------------- */
+
+.outils {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    padding: 8px 12px max(10px, env(safe-area-inset-bottom));
+}
+
+.bouton {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+    background: var(--panneau);
+    color: var(--encre);
+    border: 1px solid var(--trait);
+}
+
+.bouton svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.bouton:disabled { opacity: .45; cursor: default; }
+.bouton:not(:disabled):hover { border-color: var(--accent); }
+
+.bouton.primaire {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+}
+
+.bouton.danger { color: #c0392b; }
+
+/* Dialogues ------------------------------------------------------------- */
+
+.feuille {
+    width: min(440px, 100vw - 24px);
+    max-height: min(84dvh, 720px);
+    padding: 20px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--panneau);
+    color: var(--encre);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+}
+
+.feuille::backdrop { background: rgba(10, 12, 16, .55); }
+
+.feuille h2 { margin: 0 0 4px; font-size: 21px; }
+.feuille h3 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--encre-faible); }
+.feuille p { margin: 0 0 10px; font-size: 15px; }
+.feuille .detail { color: var(--encre-faible); }
+.feuille kbd {
+    padding: 1px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--trait);
+    background: color-mix(in srgb, var(--encre) 6%, transparent);
+    font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.segments {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--encre) 7%, transparent);
+}
+
+.segment {
+    padding: 9px 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--encre-faible);
+    border-radius: 9px;
+}
+
+.segment.actif {
+    background: var(--panneau);
+    color: var(--encre);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+}
+
+.pastilles { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.pastille {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    /* Deux triangles : la case claire et la case sombre de la palette, ce que
+     * le joueur verra vraiment sur le damier. */
+    background: linear-gradient(135deg, var(--apercu-clair) 0 50%, var(--apercu-sombre) 50% 100%);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18);
+}
+
+.pastille.actif { border-color: var(--encre); }
+
+.option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    cursor: pointer;
+}
+
+.option input { margin-top: 3px; width: 19px; height: 19px; accent-color: var(--accent); }
+.option strong { display: block; font-size: 15px; font-weight: 600; }
+.option small { display: block; font-size: 13px; color: var(--encre-faible); }
+
+.explication { font-size: 13px; color: var(--encre-faible); margin-top: 8px; }
+
+.stats {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.stats dt { color: var(--encre-faible); }
+.stats dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.stats .courante { color: var(--encre); font-weight: 700; }
+
+.version {
+    margin: 18px 0 0;
+    font-size: 12px;
+    color: var(--encre-faible);
+    text-align: center;
+}
+
+.pied {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
+/* Ecrans hauts et etroits : le damier a la place, les bandeaux se serrent. */
+@media (max-width: 420px) {
+    .barre h1 { font-size: 17px; }
+    .camp { padding: 4px 9px; font-size: 13px; }
+    .bouton { padding: 10px 14px; font-size: 14px; }
+}
+
+/* Paysage sur telephone : tout se met a cote du damier plutot qu'au-dessus. */
+@media (orientation: landscape) and (max-height: 560px) {
+    .plateau { width: min(100vw - 16px, 100dvh - 120px, 620px); }
+    .pendules { padding: 4px 12px 0; }
+    .outils { padding: 4px 12px max(6px, env(safe-area-inset-bottom)); }
+    .barre { padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }
+}
