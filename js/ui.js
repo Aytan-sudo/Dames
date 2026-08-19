@@ -3,8 +3,8 @@
 // Tout ce qui lit ou ecrit dans la page passe par ici — app.js orchestre la
 // partie et ne touche jamais un element a la main.
 
-import { NIVEAUX } from './ia.js';
-import { VARIANTES, varianteDe } from './variantes.js';
+import { NIVEAUX, niveauDe } from './ia.js';
+import { VARIANTES, varianteDe, REGLES_OPTIONNELLES, maisonDe, valeurRegle } from './variantes.js';
 import { MODES, PALETTES, modeEffectif } from './themes.js';
 import { statsDe, cleStats } from './storage.js';
 import { BLANC, NOIR } from './regles.js';
@@ -13,7 +13,7 @@ import { BLANC, NOIR } from './regles.js';
 // package.json et avec le cache du service worker — sans quoi une correction
 // publiee n'atteint jamais ceux qui ont installe le jeu, et personne ne peut
 // dire quelle version il a sous les yeux. Un test verifie les trois.
-export const VERSION = '1.1.1';
+export const VERSION = '1.2.0';
 
 const $ = id => document.getElementById(id);
 
@@ -42,9 +42,13 @@ export const elements = {
     dialogueReglages: $('dialogue-reglages'),
     segmentsVariante: $('segments-variante'),
     explicationVariante: $('explication-variante'),
+    reglesMaison: $('regles-maison'),
+    avisRegles: $('avis-regles'),
+    reglesOfficielles: $('regles-officielles'),
     blocOrdinateur: $('bloc-ordinateur'),
     segmentsAdversaire: $('segments-adversaire'),
     segmentsNiveau: $('segments-niveau'),
+    explicationNiveau: $('explication-niveau'),
     segmentsCamp: $('segments-camp'),
     explicationCamp: $('explication-camp'),
     segmentsMode: $('segments-mode'),
@@ -85,9 +89,35 @@ function remplirSegments(groupe, entrees, cle, surChoix, decorer) {
     }));
 }
 
+// Un interrupteur par regle levable. Ils sont construits, pas ecrits dans la
+// page : la liste vit dans variantes.js, et une regle ajoutee la-bas doit
+// apparaitre ici sans qu'on y pense.
+function construireRegles(surRegle) {
+    elements.reglesMaison.replaceChildren(...REGLES_OPTIONNELLES.map(regle => {
+        const etiquette = document.createElement('label');
+        etiquette.className = 'option';
+
+        const boite = document.createElement('input');
+        boite.type = 'checkbox';
+        boite.dataset.regle = regle.id;
+        boite.addEventListener('change', () => surRegle(regle.id, boite.checked));
+
+        const texte = document.createElement('span');
+        const titre = document.createElement('strong');
+        titre.textContent = regle.libelle;
+        const detail = document.createElement('small');
+        detail.textContent = regle.detail;
+        texte.append(titre, detail);
+
+        etiquette.append(boite, texte);
+        return etiquette;
+    }));
+}
+
 export function construireReglages(actions) {
     remplirSegments(elements.segmentsVariante, VARIANTES, 'variante', actions.surVariante,
         (bouton, variante) => { bouton.innerHTML = `${variante.libelle}<small>${variante.court}</small>`; });
+    construireRegles(actions.surRegle);
     remplirSegments(elements.segmentsAdversaire, ADVERSAIRES, 'adversaire', actions.surAdversaire);
     remplirSegments(elements.segmentsNiveau, NIVEAUX, 'niveau', actions.surNiveau);
     remplirSegments(elements.segmentsCamp, CAMPS, 'camp', actions.surCamp);
@@ -127,8 +157,17 @@ export function majReglages(preferences) {
         bloc.hidden = bloc.dataset.variante !== variante.id;
     }
 
+    // Chaque interrupteur part de la regle officielle du jeu choisi : la prise
+    // majoritaire est cochee aux internationales et decochee aux anglaises, et
+    // c'est dans les deux cas la regle du livre.
+    for (const boite of elements.reglesMaison.querySelectorAll('input[data-regle]')) {
+        boite.checked = valeurRegle(variante.id, preferences.regles, boite.dataset.regle);
+    }
+    elements.avisRegles.hidden = !maisonDe(variante.id, preferences.regles);
+
     marquer(elements.segmentsAdversaire, 'adversaire', preferences.adversaire);
     marquer(elements.segmentsNiveau, 'niveau', preferences.niveau);
+    elements.explicationNiveau.textContent = niveauDe(preferences.niveau).resume;
     marquer(elements.segmentsCamp, 'camp', preferences.camp);
     marquer(elements.segmentsMode, 'mode', preferences.mode);
     marquer(elements.pastillesPalette, 'palette', preferences.palette);
@@ -138,7 +177,7 @@ export function majReglages(preferences) {
     // ou en second, et il vaut mieux le dire.
     elements.explicationCamp.textContent =
         `Les ${variante.premier === BLANC ? 'blancs' : 'noirs'} ouvrent la partie. `
-        + 'Changer de camp, de niveau ou de jeu relance une partie.';
+        + 'Changer de camp, de niveau, de jeu ou de règles relance une partie.';
 
     elements.blocOrdinateur.hidden = preferences.adversaire !== 'ordinateur';
     elements.optionIndices.checked = preferences.indices;
@@ -171,6 +210,7 @@ export function majPendules(bilan, trait, preferences, occupe) {
 // rapport avec la partie qu'on vient de jouer, personne ne les lirait.
 export function majStats(stats, preferences) {
     const variante = preferences.variante ?? 'international';
+    const maison = maisonDe(variante, preferences.regles);
     const lignes = [
         ...NIVEAUX.map(niveau => [`Ordinateur · ${niveau.libelle.toLowerCase()}`, `${variante}.ordinateur.${niveau.id}`]),
         ['Deux joueurs', `${variante}.humain`]
@@ -188,7 +228,9 @@ export function majStats(stats, preferences) {
             : humaine
                 ? `${ligne.victoires} blancs · ${ligne.defaites} noirs · ${ligne.nulles} nulles`
                 : `${ligne.victoires} V · ${ligne.defaites} D · ${ligne.nulles} N`;
-        if (cle === cleStats(preferences)) {
+        // La ligne en cours n'est mise en avant que si la partie s'y range :
+        // aux regles maison, aucune ne l'attend.
+        if (!maison && cle === cleStats(preferences)) {
             terme.classList.add('courante');
             valeur.classList.add('courante');
         }

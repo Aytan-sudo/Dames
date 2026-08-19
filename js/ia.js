@@ -5,29 +5,64 @@
 // une position ouverte beaucoup moins, et fixer une profondeur unique donnerait
 // une machine tantot instantanee tantot interminable.
 //
-// Deux precautions qui comptent plus que la profondeur :
+// Une precaution qui compte plus que la profondeur : on ne s'arrete jamais
+// d'evaluer sur une prise en suspens. Aux dames une prise est obligatoire ;
+// couper la recherche juste avant, c'est croire qu'on vient de gagner un pion
+// quand on vient d'en perdre trois.
 //
-//   — on ne s'arrete jamais d'evaluer sur une prise en suspens. Aux dames une
-//     prise est obligatoire ; couper la recherche juste avant, c'est croire
-//     qu'on vient de gagner un pion quand on vient d'en perdre trois.
-//   — le niveau facile ne joue pas moins profond seulement, il juge de travers
-//     — un bruit ajoute a l'evaluation. Une machine qui voit tout a deux coups
-//     et rien au troisieme est desagreable a jouer : elle ne rate que ce qui
-//     est loin, donc elle ne rate jamais rien de ce que le debutant tente.
+// C'est justement ce filet qui rendait les trois niveaux indiscernables. Aux
+// dames, presque toute la tactique tient dans des suites forcees : une machine
+// qui les resout toutes, meme en ne cherchant qu'a deux demi-coups, ne rate
+// rien de ce qu'un debutant peut lui tendre. Baisser la profondeur ne la
+// rendait donc pas plus facile a battre — seulement moins bonne a preparer un
+// gain lointain, ce qui ne se voit pas quand on perd en vingt coups.
+//
+// D'ou quatre reglages par niveau plutot qu'un, et une regle simple : ce qui
+// distingue les niveaux faciles, c'est ce qu'ils ne voient pas.
+//
+//   — profondeur : jusqu'ou la recherche va, en demi-coups. Un « coup » au sens
+//     du joueur en vaut deux : le sien et la reponse.
+//   — riposte : de combien de demi-coups la resolution des prises depasse cette
+//     profondeur. A zero, la machine s'arrete juste apres son propre coup et ne
+//     voit pas la reprise — elle donne des pieces, comme un debutant.
+//   — bruit : de combien elle se trompe en jugeant une position.
+//   — etourderie : la part des coups ou elle joue autre chose que son meilleur.
+//     C'est le seul reglage qui se remarque tout de suite, et le seul qui rende
+//     une partie gagnable a un joueur qui debute.
 //
 // Les tables d'evaluation dependent du damier : elles sont calculees une fois
 // par variante, a la premiere partie qui en a besoin.
 
 import { geometrieDe, varianteDe } from './variantes.js';
-import { BLANC, NOIR, PION, DAME, coupsLegaux, appliquer, campDe, estDame } from './regles.js';
+import { BLANC, NOIR, PION, DAME, coupsLegaux, appliquer, campDe, estDame, reglesDe } from './regles.js';
 
 export const NIVEAUX = [
-    { id: 'facile', libelle: 'Facile', profondeur: 2, budget: 120, bruit: 55 },
-    { id: 'normal', libelle: 'Normal', profondeur: 6, budget: 450, bruit: 12 },
-    { id: 'difficile', libelle: 'Difficile', profondeur: 14, budget: 1600, bruit: 0 }
+    {
+        id: 'debutant', libelle: 'Très facile',
+        profondeur: 1, budget: 60, riposte: 0, bruit: 70, etourderie: 0.35,
+        resume: 'Ne regarde pas plus loin que son propre coup : il prend ce qui passe sans voir la reprise, et laisse des pièces en chemin.'
+    },
+    {
+        id: 'facile', libelle: 'Facile',
+        profondeur: 2, budget: 120, riposte: 2, bruit: 40, etourderie: 0.12,
+        resume: 'Voit un coup à l\'avance : il ne se laisse plus manger bêtement, mais ne prépare rien et se distrait encore.'
+    },
+    {
+        id: 'normal', libelle: 'Normal',
+        profondeur: 4, budget: 400, riposte: 6, bruit: 10, etourderie: 0,
+        resume: 'Voit deux coups à l\'avance et déroule les rafles jusqu\'au bout. Il ne se trompe plus de lui-même.'
+    },
+    {
+        id: 'difficile', libelle: 'Difficile',
+        profondeur: 16, budget: 1600, riposte: 10, bruit: 0, etourderie: 0,
+        resume: 'Cherche aussi loin que la seconde et demie qu\'on lui laisse le permet — souvent huit coups, davantage en finale.'
+    }
 ];
 
-export const niveauDe = id => NIVEAUX.find(niveau => niveau.id === id) ?? NIVEAUX[1];
+// Le repli est le niveau normal, nomme : le prendre par son rang dans la liste
+// designerait un autre niveau des qu'on en ajoute un.
+export const niveauDe = id => NIVEAUX.find(niveau => niveau.id === id)
+    ?? NIVEAUX.find(niveau => niveau.id === 'normal');
 
 const VALEUR_PION = 100;
 const VALEUR_DAME = 310;
@@ -129,15 +164,36 @@ function negamax(position, profondeur, alpha, beta, ply, contexte) {
     // preferables aux mats lointains — sans lui la machine gagne « un jour ».
     if (coups.length === 0) return -MAT + ply;
 
+    let meilleur = -Infinity;
+
     if (profondeur <= 0) {
+        // `plyMax` est la borne du niveau : au-dela, on evalue meme au milieu
+        // d'une rafle. C'est faux, et c'est voulu — un niveau facile doit se
+        // tromper quelque part, et se tromper la ressemble a un debutant qui
+        // ne voit pas la reprise.
         const enSuspens = coups[0].prises.length > 0;
         if (!enSuspens || ply >= contexte.plyMax) {
             return evaluer(position) * position.trait + contexte.bruit();
         }
+        // Quand la prise n'est plus obligatoire — une regle maison —, ne pas
+        // manger est un coup comme un autre : la resolution doit pouvoir
+        // s'arreter la, sinon la machine se croit forcee dans ses propres
+        // mauvaises prises.
+        if (!contexte.priseForcee) {
+            meilleur = evaluer(position) * position.trait + contexte.bruit();
+            if (meilleur >= beta) return meilleur;
+            if (meilleur > alpha) alpha = meilleur;
+        }
     }
 
-    let meilleur = -Infinity;
-    for (const coup of ordonner(coups, ply === 0 ? contexte.prefere : null)) {
+    // Passe la profondeur, seules les prises se poursuivent. La distinction ne
+    // se voit qu'en regle maison : ailleurs, la prise obligatoire a deja fait
+    // le tri.
+    const explorables = profondeur > 0 || contexte.priseForcee
+        ? coups
+        : coups.filter(coup => coup.prises.length > 0);
+
+    for (const coup of ordonner(explorables, ply === 0 ? contexte.prefere : null)) {
         const score = -negamax(appliquer(position, coup), profondeur - 1, -beta, -alpha, ply + 1, contexte);
         if (score > meilleur) {
             meilleur = score;
@@ -160,14 +216,15 @@ export function choisirCoup(position, idNiveau = 'normal', options = {}) {
     }
 
     const hasard = options.hasard ?? Math.random;
-    const bruit = niveau.bruit
-        ? () => Math.trunc((hasard() * 2 - 1) * niveau.bruit)
-        : () => 0;
+    const force = niveau.bruit ?? 0;
+    const bruit = force ? () => Math.trunc((hasard() * 2 - 1) * force) : () => 0;
+    const fond = options.profondeur ?? niveau.profondeur;
 
     const contexte = {
         noeuds: 0,
         echeance: performance.now() + (options.budget ?? niveau.budget),
-        plyMax: (options.profondeur ?? niveau.profondeur) + 8,
+        plyMax: fond + (options.riposte ?? niveau.riposte),
+        priseForcee: reglesDe(position).priseObligatoire !== false,
         bruit,
         prefere: null,
         meilleurCoup: null
@@ -180,7 +237,7 @@ export function choisirCoup(position, idNiveau = 'normal', options = {}) {
 
     // Approfondissement progressif : chaque passe reste utilisable seule, et
     // celle qui est interrompue est simplement jetee.
-    for (let profondeur = 1; profondeur <= (options.profondeur ?? niveau.profondeur); profondeur++) {
+    for (let profondeur = 1; profondeur <= fond; profondeur++) {
         contexte.meilleurCoup = null;
         try {
             score = negamax(position, profondeur, -Infinity, Infinity, 0, contexte);
@@ -197,12 +254,27 @@ export function choisirCoup(position, idNiveau = 'normal', options = {}) {
         if (performance.now() > contexte.echeance) break;
     }
 
+    // L'etourderie, en dernier : la machine a trouve son meilleur coup, et en
+    // joue un autre. C'est ce qui separe vraiment les niveaux du point de vue
+    // du joueur — une machine qui cherche moins loin reste imbattable pour qui
+    // debute, une machine qui laisse passer un coup sur trois ne l'est plus.
+    const etourderie = options.etourderie ?? niveau.etourderie ?? 0;
+    let etourdi = false;
+    if (etourderie > 0 && hasard() < etourderie) {
+        const autres = coups.filter(coup => coup !== choisi);
+        if (autres.length) {
+            choisi = autres[Math.min(autres.length - 1, Math.floor(hasard() * autres.length))];
+            etourdi = true;
+        }
+    }
+
     return {
         coup: choisi,
         score,
         profondeur: atteinte,
         noeuds: contexte.noeuds,
-        duree: Math.round(performance.now() - depart)
+        duree: Math.round(performance.now() - depart),
+        etourdi
     };
 }
 

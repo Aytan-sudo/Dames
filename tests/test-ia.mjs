@@ -43,12 +43,31 @@ check('l evaluation est parfaitement symetrique',
 
 // --- Choix du coup --------------------------------------------------------
 
-const facile = niveauDe('facile');
-check('les trois niveaux existent',
-    NIVEAUX.map(niveau => niveau.id).join(',') === 'facile,normal,difficile');
+check('les quatre niveaux existent, du plus tendre au plus dur',
+    NIVEAUX.map(niveau => niveau.id).join(',') === 'debutant,facile,normal,difficile');
 check('un identifiant inconnu retombe sur le niveau normal', niveauDe('expert').id === 'normal');
-check('le niveau facile cherche moins loin que le difficile',
-    facile.profondeur < niveauDe('difficile').profondeur);
+check('chaque niveau dit ce qu il voit', NIVEAUX.every(niveau => niveau.resume?.length > 40));
+
+// L'echelle doit etre monotone sur les quatre reglages a la fois : un niveau
+// qui chercherait plus loin tout en se trompant davantage ne serait pas « entre
+// les deux », il serait ailleurs.
+const croissant = (cle, sens = 1) => NIVEAUX.every((niveau, index) =>
+    index === 0 || sens * niveau[cle] >= sens * NIVEAUX[index - 1][cle]);
+
+check('la profondeur monte avec le niveau', croissant('profondeur'));
+check('la resolution des prises monte avec le niveau', croissant('riposte'));
+check('le bruit descend quand le niveau monte', croissant('bruit', -1));
+check('l etourderie descend quand le niveau monte', croissant('etourderie', -1));
+check('les deux niveaux hauts ne se trompent jamais d eux-memes',
+    niveauDe('normal').etourderie === 0
+    && niveauDe('difficile').bruit === 0 && niveauDe('difficile').etourderie === 0);
+
+// Le point de tout ce reglage : le tres facile ne resout pas les prises
+// au-dela de son propre coup. C'est ce qui lui fait donner des pieces, et
+// c'est ce que les trois anciens niveaux faisaient tous les trois — ce qui les
+// rendait indiscernables.
+check('le niveau tres facile ne voit pas la reprise', niveauDe('debutant').riposte === 0);
+check('les autres niveaux la voient', NIVEAUX.slice(1).every(niveau => niveau.riposte > 0));
 
 const ouverture = choisirCoup(positionInitiale(), 'normal', { budget: 200 });
 check('le coup rendu est legal',
@@ -83,11 +102,15 @@ function graine(valeur) {
     };
 }
 
+// Chaque niveau joue avec ses propres reglages, seul le temps est raccourci :
+// c'est bien l'ecart de vision qu'on mesure, pas un ecart de budget.
+const BUDGET = { debutant: 40, facile: 60, normal: 120, difficile: 220 };
+
 function duel(niveauBlanc, niveauNoir, hasard) {
     const partie = creerPartie();
     for (let coup = 0; coup < 260 && !partie.resultat; coup++) {
         const niveau = trait(partie) === 1 ? niveauBlanc : niveauNoir;
-        const choix = choisirCoup(partie.position, niveau, { budget: 60, profondeur: niveau === 'facile' ? 2 : 6, hasard });
+        const choix = choisirCoup(partie.position, niveau, { budget: BUDGET[niveau], hasard });
         jouer(partie, choix.coup);
     }
     return partie;
@@ -104,11 +127,49 @@ check('et le bat aussi en noir',
 check('une partie entre machines se termine toujours',
     duelA.resultat !== null && duelB.resultat !== null);
 
+// Les niveaux voisins, et c'est tout le sujet : trois niveaux qui se valaient,
+// c'etait la plainte des joueurs. Un niveau qui ne bat pas celui d'en dessous
+// n'est pas un niveau, c'est une etiquette.
+const echelle = [['facile', 'debutant', 3], ['normal', 'facile', 13], ['difficile', 'normal', 23]];
+
+for (const [fort, faible, semence] of echelle) {
+    // Deux parties, une de chaque couleur. On demande une victoire et aucune
+    // defaite plutot que deux victoires : entre deux moteurs qui ne se trompent
+    // jamais, la nulle est un resultat honnete, et un test qui l'interdit finit
+    // par echouer sur une machine plus lente que la sienne.
+    const issues = [duel(fort, faible, graine(semence)), duel(faible, fort, graine(semence + 1))]
+        .map((partie, index) => (partie.resultat?.gagnant ?? 0) * (index === 0 ? 1 : -1));
+    check(`le niveau ${fort} domine le niveau ${faible} des deux couleurs`,
+        issues.some(issue => issue > 0) && issues.every(issue => issue >= 0), issues.join(' '));
+}
+
+// L'etourderie se voit, ou elle ne sert a rien. Sur la position de depart, ou
+// aucun coup n'est force, le tres facile doit changer d'avis assez souvent.
+function etourderies(idNiveau, semence) {
+    const hasard = graine(semence);
+    const depart = positionInitiale();
+    let compte = 0;
+    for (let essai = 0; essai < 40; essai++) {
+        if (choisirCoup(depart, idNiveau, { hasard }).etourdi) compte++;
+    }
+    return compte;
+}
+
+const distrait = etourderies('debutant', 5);
+check('le niveau tres facile joue souvent autre chose que son meilleur coup',
+    distrait >= 6 && distrait <= 26, `${distrait}/40`);
+check('le niveau normal ne s etourdit jamais', etourderies('normal', 5) === 0);
+
 // --- Temps ----------------------------------------------------------------
 
 const chronometre = choisirCoup(positionInitiale(), 'difficile', { budget: 150 });
 check('la reflexion tient dans le budget donne', chronometre.duree < 900, `${chronometre.duree}ms`);
 check('le budget plus large cherche plus loin',
     choisirCoup(positionInitiale(), 'difficile', { budget: 600 }).profondeur >= chronometre.profondeur);
+
+// Les niveaux faciles doivent repondre du tac au tac : une machine qui met une
+// seconde a jouer mal se fait detester deux fois.
+const rapides = NIVEAUX.slice(0, 2).map(niveau => choisirCoup(positionInitiale(), niveau.id).duree);
+check('les niveaux faciles repondent tout de suite', rapides.every(duree => duree < 200), rapides.join('ms '));
 
 report();

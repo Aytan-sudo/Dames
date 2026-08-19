@@ -32,8 +32,8 @@ export const MOTIFS = {
     abandon: 'abandon'
 };
 
-export function creerPartie(variante = 'international') {
-    const position = positionInitiale(variante);
+export function creerPartie(variante = 'international', maison = null) {
+    const position = positionInitiale(variante, maison);
     return {
         position,
         debut: copier(position),
@@ -51,6 +51,11 @@ export const coupsLegaux = partie => (partie.resultat ? [] : coupsDeLaPosition(p
 export const trait = partie => partie.position.trait;
 
 export const varianteDeLaPartie = partie => partie.position.variante;
+
+// Une partie officielle, c'est-a-dire comptable. Les regles maison se jouent
+// aussi bien ; elles ne se comptent pas, parce qu'un tableau ou toutes les
+// victoires n'ont pas ete gagnees aux memes regles ne dit plus rien.
+export const estOfficielle = partie => !partie.position.maison;
 
 // Une finale qui ne peut plus rien produire : une dame seule contre deux ou
 // trois pieces. C'est au camp en surnombre de conclure, et c'est donc son
@@ -158,6 +163,7 @@ export const bilan = partie => compter(partie.position);
 export const serialiser = partie => ({
     version: 1,
     variante: partie.position.variante,
+    maison: partie.position.maison ?? null,
     coups: partie.historique.map(({ coup }) => [coup.de, coup.chemin, coup.prises]),
     resultat: partie.resultat
 });
@@ -165,7 +171,7 @@ export const serialiser = partie => ({
 export function relire(donnees) {
     if (!donnees || donnees.version !== 1 || !Array.isArray(donnees.coups)) return null;
 
-    const partie = creerPartie(donnees.variante);
+    const partie = creerPartie(donnees.variante, donnees.maison ?? null);
     for (const [de, chemin, prises] of donnees.coups) {
         const rejoue = jouer(partie, { de, vers: chemin[chemin.length - 1], chemin, prises });
         if (!rejoue) return null;

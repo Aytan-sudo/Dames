@@ -15,6 +15,12 @@ export const PREFERENCES_PAR_DEFAUT = {
     adversaire: 'ordinateur',  // 'ordinateur' ou 'humain'
     niveau: 'normal',
     camp: 'blancs',            // le camp du joueur, face a l'ordinateur
+    // Les regles qu'on a retournees a la main. Ce qui n'est pas la dedans suit
+    // la variante ; un objet vide, ce sont les regles officielles. Les valeurs
+    // sont absolues et non « inversees », pour qu'un choix garde son sens quand
+    // on change de jeu : `dameVolante: false` est une entorse aux
+    // internationales et la regle officielle aux anglaises.
+    regles: {},
     indices: true,             // allumer les cases jouables
     numeros: false,            // la numerotation officielle sur le damier
     vibration: true
@@ -48,6 +54,10 @@ export const chargerStats = () => lire(CLE_STATS, {});
 // niveau facile et gagner contre le difficile ne racontent pas la meme partie,
 // et une victoire aux anglaises n'est pas une victoire aux internationales.
 // Tout melanger rendrait le tableau muet.
+//
+// Les parties aux regles maison n'ont pas de ligne du tout : elles ne sont pas
+// enregistrees. Leur en donner une, c'est se retrouver avec autant de lignes
+// que de combinaisons d'interrupteurs.
 export const cleStats = preferences => `${preferences.variante ?? 'international'}.`
     + (preferences.adversaire === 'humain' ? 'humain' : `ordinateur.${preferences.niveau}`);
 

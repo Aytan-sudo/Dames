@@ -53,6 +53,22 @@ check('une preference absente de l enregistrement prend sa valeur par defaut',
     anciennes.palette === 'foret' && anciennes.vibration === PREFERENCES_PAR_DEFAUT.vibration
     && anciennes.adversaire === PREFERENCES_PAR_DEFAUT.adversaire);
 
+// Les regles maison sont un objet, pas un drapeau : la fusion avec les valeurs
+// par defaut est de surface, et un joueur qui n'a leve qu'une regle ne doit pas
+// retrouver les autres au passage d'une mise a jour.
+check('le jeu demarre aux regles officielles',
+    JSON.stringify(PREFERENCES_PAR_DEFAUT.regles) === '{}');
+
+enregistrerPreferences({ ...PREFERENCES_PAR_DEFAUT, regles: { priseObligatoire: false } });
+check('les regles levees se relisent',
+    JSON.stringify(chargerPreferences().regles) === '{"priseObligatoire":false}',
+    JSON.stringify(chargerPreferences().regles));
+
+memoire.set('dames.preferences', JSON.stringify({ regles: { dameVolante: false } }));
+check('un enregistrement d avant les regles maison ne les invente pas',
+    JSON.stringify(chargerPreferences().regles) === '{"dameVolante":false}');
+memoire.delete('dames.preferences');
+
 memoire.set('dames.preferences', '{ceci n est pas du json');
 check('un enregistrement abime ne fait pas tomber le jeu',
     JSON.stringify(chargerPreferences()) === JSON.stringify(PREFERENCES_PAR_DEFAUT));

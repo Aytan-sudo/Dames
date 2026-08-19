@@ -20,10 +20,15 @@
 // jusqu'a la fin de la rafle. Elles bloquent le passage, et on ne repasse
 // jamais dessus.
 //
+// Ces quatre differences sont des drapeaux, pas des embranchements ecrits ici :
+// le meme mecanisme sert donc aux regles maison, ou le joueur retourne l'un
+// d'eux a la main. Une partie dont la prise n'est plus obligatoire n'emprunte
+// aucun chemin special — elle lit juste un drapeau dans l'autre sens.
+//
 // Rien dans ce fichier ne connait le DOM. Tout se teste en Node.
 
 import { DIRECTIONS, AVANT_BLANC, AVANT_NOIR } from './damier.js';
-import { varianteDe, geometrieDe } from './variantes.js';
+import { geometrieDe, reglesAvec } from './variantes.js';
 
 export const BLANC = 1;
 export const NOIR = -1;
@@ -38,12 +43,16 @@ export const adverse = camp => -camp;
 export const nomCamp = camp => (camp === BLANC ? 'blancs' : 'noirs');
 
 // Une position porte sa variante : sans elle, une position isolee ne saurait
-// pas de quel jeu elle vient, et le moteur non plus.
-export const reglesDe = position => varianteDe(position.variante);
+// pas de quel jeu elle vient, et le moteur non plus. Elle porte aussi, s'il y
+// en a, les entorses aux regles officielles — la prise rendue facultative, la
+// dame privee de vol. Les mettre dans la position plutot que dans un reglage
+// global garde le moteur pur : deux parties aux regles differentes peuvent
+// tourner cote a cote, et un test n'a rien a remettre en place apres coup.
+export const reglesDe = position => reglesAvec(position.variante, position.maison);
 export const geometrie = position => geometrieDe(position.variante);
 
-export function positionInitiale(idVariante = 'international') {
-    const variante = varianteDe(idVariante);
+export function positionInitiale(idVariante = 'international', maison = null) {
+    const variante = reglesAvec(idVariante, maison);
     const geo = geometrieDe(variante.id);
     const parCamp = (geo.cote / 2) * variante.rangeesDePieces;
 
@@ -51,13 +60,14 @@ export function positionInitiale(idVariante = 'international') {
     for (let numero = 1; numero <= parCamp; numero++) cases[numero] = -PION;
     for (let numero = geo.CASES - parCamp + 1; numero <= geo.CASES; numero++) cases[numero] = PION;
 
-    return { cases, trait: variante.premier, variante: variante.id };
+    return { cases, trait: variante.premier, variante: variante.id, maison };
 }
 
 export const copier = position => ({
     cases: Int8Array.from(position.cases),
     trait: position.trait,
-    variante: position.variante
+    variante: position.variante,
+    maison: position.maison
 });
 
 export function compter(position) {
@@ -153,12 +163,10 @@ function explorerLong(contexte, courante, prises, chemin, sortie) {
     if (!poursuivie && prises.length) sortie.push(creerCoup(depart, chemin, prises));
 }
 
-function raflesDepuis(position, depart) {
+function raflesDepuis(position, depart, variante, geo) {
     const piece = position.cases[depart];
     if (!piece) return [];
 
-    const variante = reglesDe(position);
-    const geo = geometrieDe(position.variante);
     const camp = campDe(piece);
 
     const cases = Int8Array.from(position.cases);
@@ -180,12 +188,10 @@ function raflesDepuis(position, depart) {
     return sortie;
 }
 
-function deplacementsDepuis(position, depart) {
+function deplacementsDepuis(position, depart, variante, geo) {
     const piece = position.cases[depart];
     if (!piece) return [];
 
-    const variante = reglesDe(position);
-    const geo = geometrieDe(position.variante);
     const camp = campDe(piece);
     const coups = [];
 
@@ -213,9 +219,13 @@ function deplacementsDepuis(position, depart) {
 // Les coups legaux du camp au trait. S'il existe une prise, elle est
 // obligatoire — et, aux internationales seulement, il faut prendre la plus
 // longue.
+//
+// La prise obligatoire peut etre levee en regle maison. Les rafles restent
+// alors proposees a cote des deplacements simples : on peut toujours manger,
+// on n'y est plus tenu.
 export function coupsLegaux(position) {
     const geo = geometrieDe(position.variante);
-    const majoritaire = reglesDe(position).rafleMaximale;
+    const variante = reglesDe(position);
     const camp = position.trait;
 
     const rafles = [];
@@ -223,8 +233,8 @@ export function coupsLegaux(position) {
 
     for (let numero = 1; numero <= geo.CASES; numero++) {
         if (campDe(position.cases[numero]) !== camp) continue;
-        for (const coup of raflesDepuis(position, numero)) {
-            if (!majoritaire) { rafles.push(coup); continue; }
+        for (const coup of raflesDepuis(position, numero, variante, geo)) {
+            if (!variante.rafleMaximale) { rafles.push(coup); continue; }
             if (coup.prises.length > maximum) {
                 maximum = coup.prises.length;
                 rafles.length = 0;
@@ -233,24 +243,26 @@ export function coupsLegaux(position) {
         }
     }
 
-    if (rafles.length) return rafles;
+    // Le cas courant : la prise chasse tout le reste, et les deplacements
+    // simples n'ont meme pas ete calcules.
+    if (rafles.length && variante.priseObligatoire) return rafles;
 
     const simples = [];
     for (let numero = 1; numero <= geo.CASES; numero++) {
         if (campDe(position.cases[numero]) !== camp) continue;
-        simples.push(...deplacementsDepuis(position, numero));
+        simples.push(...deplacementsDepuis(position, numero, variante, geo));
     }
-    return simples;
+    return rafles.length ? [...rafles, ...simples] : simples;
 }
 
 // Le nombre de prises impose. L'interface s'en sert pour expliquer pourquoi
-// un coup pourtant valide est refuse.
+// un coup pourtant valide est refuse — et, quand la prise est facultative,
+// pour ne rien expliquer du tout.
 export const prisesObligatoires = position => {
+    if (!reglesDe(position).priseObligatoire) return 0;
     const coups = coupsLegaux(position);
     if (!coups.length) return 0;
-    return reglesDe(position).rafleMaximale
-        ? coups[0].prises.length
-        : Math.min(...coups.map(coup => coup.prises.length));
+    return Math.min(...coups.map(coup => coup.prises.length));
 };
 
 export const promeut = (position, piece, arrivee) => {
@@ -273,7 +285,7 @@ export function appliquer(position, coup) {
     // n'avait pas le droit de faire.
     cases[coup.vers] = promeut(position, piece, coup.vers) ? piece * DAME : piece;
 
-    return { cases, trait: adverse(position.trait), variante: position.variante };
+    return { cases, trait: adverse(position.trait), variante: position.variante, maison: position.maison };
 }
 
 // Perdu : plus de pieces, ou plus un seul coup. Les deux se valent aux dames,

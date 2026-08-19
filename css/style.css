@@ -494,6 +494,14 @@ body.avec-numeros .numero { opacity: 1; }
     background: color-mix(in srgb, var(--encre) 7%, transparent);
 }
 
+/* Quatre choix ne tiennent pas sur une ligne dans un dialogue de telephone :
+ * les niveaux passent en deux colonnes plutot que d'ecraser « Très facile »
+ * sur trois lignes. */
+.segments.paire {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr 1fr;
+}
+
 .segment {
     padding: 9px 6px;
     font-size: 14px;
@@ -536,6 +544,32 @@ body.avec-numeros .numero { opacity: 1; }
 .option small { display: block; font-size: 13px; color: var(--encre-faible); }
 
 .explication { font-size: 13px; color: var(--encre-faible); margin-top: 8px; }
+
+/* L'avis des regles maison. Il ne s'affiche que quand une regle a bouge, et il
+ * porte de quoi tout remettre d'aplomb : personne ne doit avoir a se souvenir
+ * de quel interrupteur il a touche. */
+.avis {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    font-size: 13px;
+}
+
+.avis[hidden] { display: none; }
+
+.lien {
+    padding: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: underline;
+    filter: brightness(.85);
+}
 
 .stats {
     display: grid;

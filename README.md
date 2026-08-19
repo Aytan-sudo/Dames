@@ -47,14 +47,32 @@ nulle.
 
 Un alpha-bêta avec approfondissement progressif, arrêté par le temps plutôt que
 par la profondeur — une position où tout est forcé se calcule très loin, une
-position ouverte beaucoup moins. Trois niveaux : facile cherche à deux coups et
-juge de travers (un bruit dans l'évaluation, plus honnête qu'une machine qui
-verrait tout de près et rien de loin), normal descend à six, difficile prend une
-seconde et demie et va aussi profond qu'il peut.
+position ouverte beaucoup moins.
 
 Il ne s'arrête jamais d'évaluer sur une prise en suspens. Aux dames une prise
 est obligatoire : couper la recherche juste avant, c'est croire qu'on vient de
 gagner un pion quand on vient d'en perdre trois.
+
+C'est justement ce filet qui rendait les niveaux indiscernables : presque toute
+la tactique des dames tient dans des suites forcées, et une machine qui les
+résout toutes ne rate rien de ce qu'un débutant peut lui tendre, même en ne
+cherchant qu'à deux demi-coups. Baisser la profondeur ne la rendait pas plus
+facile à battre.
+
+Quatre niveaux, donc, réglés sur quatre choses à la fois — jusqu'où la recherche
+va, jusqu'où elle résout les prises **au-delà** de sa profondeur, de combien elle
+se trompe en jugeant, et à quelle fréquence elle joue autre chose que son
+meilleur coup :
+
+| Niveau | Voit | Résout les prises | Se trompe |
+| --- | --- | --- | --- |
+| Très facile | son propre coup | pas du tout — il ne voit pas la reprise | souvent, et joue à côté un coup sur trois |
+| Facile | un coup à l'avance | deux demi-coups de plus | un peu |
+| Normal | deux coups à l'avance | jusqu'au bout des rafles | presque jamais |
+| Difficile | aussi loin qu'une seconde et demie le permet | jusqu'au bout | jamais |
+
+Chaque niveau bat le précédent dix fois sur dix en tournoi interne, et le test
+de l'échelle le vérifie à chaque exécution.
 
 ## Réglages
 
@@ -63,6 +81,22 @@ système), six palettes de damier, cases jouables, numérotation officielle des
 cases, vibration. Les statistiques sont tenues par variante et par niveau : une
 victoire aux anglaises contre le niveau facile n'a rien à voir avec une victoire
 aux internationales en difficile.
+
+### Règles maison
+
+Quatre règles se lèvent une par une : la prise obligatoire, la prise
+majoritaire, la prise en arrière du pion, le vol de la dame. Ce sont exactement
+les drapeaux que le moteur lit pour distinguer les deux variantes — déroger
+n'ajoute aucun cas particulier au code, ça retourne un interrupteur. Chaque
+interrupteur part de la valeur officielle du jeu choisi : la prise majoritaire
+est cochée aux internationales, décochée aux anglaises, et c'est la règle du
+livre dans les deux cas.
+
+Une partie dont une règle diffère n'est pas comptée dans le tableau. Elle se
+joue très bien ; elle ne se compare à rien. Les règles sont posées sur la
+position au moment où la partie commence, si bien qu'une partie garde les
+siennes jusqu'au bout — et qu'une sauvegarde reprise sous d'autres règles est
+refusée plutôt que rejouée de travers.
 
 La partie en cours, les préférences et les statistiques vivent dans le
 `localStorage`. Fermer l'onglet ne coûte rien.

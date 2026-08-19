@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { counter } from './harness.mjs';
 import { PALETTES, MODES } from '../js/themes.js';
 import { NIVEAUX } from '../js/ia.js';
-import { VARIANTES } from '../js/variantes.js';
+import { VARIANTES, REGLES_OPTIONNELLES } from '../js/variantes.js';
 
 const { check, report } = counter();
 console.log('\nPage\n');
@@ -116,8 +116,29 @@ check('un theme clair choisi resiste a un systeme sombre',
     style.includes(':root:not([data-mode="clair"])'));
 check('le script en tete de page lit la meme cle que le stockage',
     page.includes("localStorage.getItem('dames.preferences')"));
-check('les trois modes et les trois niveaux sont proposes',
-    MODES.length === 3 && NIVEAUX.length === 3);
+check('les trois modes et les quatre niveaux sont proposes',
+    MODES.length === 3 && NIVEAUX.length === 4);
+
+// Quatre segments sur une ligne de dialogue de telephone, ce sont quatre mots
+// coupes. La classe qui les met en deux colonnes doit exister des deux cotes.
+check('les niveaux sont ranges en deux colonnes',
+    page.includes('class="segments paire" id="segments-niveau"') && style.includes('.segments.paire'));
+check('le niveau choisi s explique sous les boutons',
+    page.includes('id="explication-niveau"') && NIVEAUX.every(niveau => niveau.resume?.length > 40));
+
+// --- Regles maison --------------------------------------------------------
+
+// Les interrupteurs sont construits depuis la liste : la page n'a qu'a fournir
+// le contenant et l'avertissement. Ce qu'on verifie ici, c'est qu'ils ont ou
+// atterrir, et qu'une regle levee se voie.
+check('la page reserve la place des interrupteurs de regles',
+    page.includes('id="regles-maison"') && REGLES_OPTIONNELLES.length === 4);
+check('l avis des regles maison existe, cache au depart',
+    /id="avis-regles"[^>]*hidden/.test(page) && style.includes('.avis'));
+check('il porte de quoi tout remettre d aplomb',
+    page.includes('id="regles-officielles"') && style.includes('.lien'));
+check('l aide dit que les parties maison ne se comptent pas',
+    /Règles maison[\s\S]{0,600}pas comptée/.test(page));
 
 // --- Variantes ------------------------------------------------------------
 

@@ -4,11 +4,11 @@
 // valide, le rendu le montre, l'ordinateur repond. Aucune regle du jeu ne vit
 // ici ; app.js ne fait que decider quand chaque module parle.
 
-import { BLANC, NOIR, campDe, nomCamp } from './regles.js';
+import { BLANC, NOIR, campDe, nomCamp, prisesObligatoires } from './regles.js';
 import * as P from './partie.js';
 import { departs, suites, prisesEnCours, avancer } from './selection.js';
 import { creerRendu } from './rendu.js';
-import { geometrieDe } from './variantes.js';
+import { geometrieDe, maisonDe } from './variantes.js';
 import { ecouterDamier, ecouterClavier } from './entree.js';
 import { choisirCoup } from './ia.js';
 import { appliquer as appliquerTheme, modeSuivant } from './themes.js';
@@ -32,6 +32,12 @@ const rendu = creerRendu({
 });
 
 const soloEnCours = () => preferences.adversaire === 'ordinateur';
+
+// Les entorses aux regles officielles, telles que les reglages les demandent.
+// Elles sont posees sur la position au moment ou la partie commence : une
+// partie garde ainsi ses regles jusqu'au bout, meme si on touche aux reglages
+// pendant qu'elle dure.
+const reglesMaison = () => maisonDe(preferences.variante, preferences.regles);
 const campDuJoueur = () => (preferences.camp === 'blancs' ? BLANC : NOIR);
 const auJoueur = () => !soloEnCours() || P.trait(partie) === campDuJoueur();
 
@@ -68,8 +74,7 @@ function raconterLeTour() {
     if (partie.resultat) return;
     if (occupe && !auJoueur()) { ui.annoncer('L\'ordinateur réfléchit…'); return; }
 
-    const coups = P.coupsLegaux(partie);
-    const prises = coups.length ? coups[0].prises.length : 0;
+    const prises = prisesObligatoires(partie.position);
     const camp = nomCamp(P.trait(partie));
 
     if (prises > 1) ui.annoncer(`Aux ${camp} — rafle obligatoire de ${prises} pièces.`);
@@ -80,7 +85,7 @@ function raconterLeTour() {
 // --- Deroulement ----------------------------------------------------------
 
 function nouvellePartie() {
-    partie = P.creerPartie(preferences.variante);
+    partie = P.creerPartie(preferences.variante, reglesMaison());
     selection = { depart: 0, etapes: [] };
     occupe = false;
     rendu.poser(geometrieDe(preferences.variante));
@@ -144,7 +149,9 @@ async function tourOrdinateur() {
 function conclure() {
     const { gagnant } = partie.resultat;
 
-    if (!partie.enregistree) {
+    // Les regles maison ne se comptent pas : un tableau ou toutes les victoires
+    // n'ont pas ete gagnees aux memes regles ne veut plus rien dire.
+    if (!partie.enregistree && P.estOfficielle(partie)) {
         partie.enregistree = true;
         // A deux sur le meme ecran, « victoire » se lit du cote des blancs :
         // c'est la seule convention qui garde un tableau lisible.
@@ -180,7 +187,8 @@ function afficherFin() {
     }
 
     ui.elements.finDetail.textContent =
-        `${RAISONS[motif]} · ${partie.historique.length} coups · ${bilan.blancs} pièces blanches contre ${bilan.noirs} noires`;
+        `${RAISONS[motif]} · ${partie.historique.length} coups · ${bilan.blancs} pièces blanches contre ${bilan.noirs} noires`
+        + (P.estOfficielle(partie) ? '' : ' · règles maison, partie non comptée');
     ui.elements.finAnnuler.hidden = partie.historique.length === 0;
     ui.annoncer(`${ui.elements.finTitre.textContent}. ${RAISONS[motif]}.`);
     ui.ouvrir(ui.elements.dialogueFin);
@@ -227,7 +235,7 @@ function surCase(numero) {
     const piece = partie.position.cases[numero];
     if (piece && campDe(piece) === P.trait(partie)) {
         rendu.refuser(numero);
-        const prises = coups.length ? coups[0].prises.length : 0;
+        const prises = prisesObligatoires(partie.position);
         if (prises) ui.annoncer(`La prise est obligatoire : ${prises} pièce${prises > 1 ? 's' : ''} à manger ailleurs.`);
         else ui.annoncer('Cette pièce ne peut pas bouger.');
     }
@@ -268,6 +276,7 @@ function brancher() {
         surVariante: variante => changer({ variante }, true),
         surAdversaire: adversaire => changer({ adversaire }, true),
         surNiveau: niveau => changer({ niveau }, true),
+        surRegle: (id, valeur) => changer({ regles: { ...preferences.regles, [id]: valeur } }, true),
         surCamp: camp => changer({ camp }, true),
         surMode: mode => { changer({ mode }); appliquerTheme(preferences); },
         surPalette: palette => { changer({ palette }); appliquerTheme(preferences); }
@@ -305,6 +314,8 @@ function brancher() {
     ui.elements.optionVibration.addEventListener('change', evenement =>
         changer({ vibration: evenement.target.checked }));
 
+    ui.elements.reglesOfficielles.addEventListener('click', () => changer({ regles: {} }, true));
+
     ui.elements.effacerStats.addEventListener('click', () => {
         effacerStats();
         stats = chargerStats();
@@ -331,9 +342,12 @@ function reprendre() {
 
     // Une partie commencee contre l'ordinateur en blancs n'a plus de sens si
     // les reglages ont change depuis : on la laisse tomber plutot que de la
-    // reprendre avec un adversaire qui n'est pas le sien.
+    // reprendre avec un adversaire qui n'est pas le sien. Les regles surtout —
+    // une partie reprise avec d'autres regles que celles ou elle a commence
+    // serait rejouee coup par coup et refusee au premier coup devenu illegal.
     if (sauvegarde.variante !== preferences.variante
         || sauvegarde.adversaire !== preferences.adversaire
+        || JSON.stringify(sauvegarde.maison ?? null) !== JSON.stringify(reglesMaison())
         || (sauvegarde.adversaire === 'ordinateur'
             && (sauvegarde.niveau !== preferences.niveau || sauvegarde.camp !== preferences.camp))) {
         return false;
