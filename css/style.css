@@ -260,8 +260,14 @@ main {
 .damier {
     display: grid;
     /* Huit cases de cote ou dix, selon la variante : js/rendu.js pose --cote
-     * sur le plateau, la grille et les pieces s'y accordent toutes seules. */
+     * sur le plateau, la grille et les pieces s'y accordent toutes seules.
+     *
+     * Les rangees sont declarees, pas deduites : laissees en `auto`, elles se
+     * dimensionnent sur leur contenu, et il suffit qu'une case affiche un
+     * numero ou une pastille de coup possible pour que toute sa rangee
+     * s'allonge — le damier reste carre, mais ses cases ne le sont plus. */
     grid-template-columns: repeat(var(--cote, 10), 1fr);
+    grid-template-rows: repeat(var(--cote, 10), 1fr);
     width: 100%;
     aspect-ratio: 1;
     border-radius: 4px;
@@ -270,15 +276,22 @@ main {
 
 .case {
     position: relative;
-    display: grid;
-    place-items: center;
+}
+
+/* Numero et pastille sont poses par-dessus la case, jamais dedans : rien de ce
+ * qu'une case affiche ne doit pouvoir changer sa taille. */
+.numero, .case.cible::after {
+    position: absolute;
 }
 
 .case.claire { background: var(--case-claire); }
 .case.sombre { background: var(--case-sombre); }
 
 .numero {
+    top: 2px;
+    left: 3px;
     font-size: clamp(7px, 1.5vw, 11px);
+    line-height: 1;
     font-weight: 600;
     color: color-mix(in srgb, var(--case-claire) 55%, transparent);
     opacity: 0;
@@ -302,10 +315,9 @@ body.avec-numeros .numero { opacity: 1; }
 
 .case.cible::after {
     content: "";
-    /* La hauteur se deduit de la largeur : dans une grille, un pourcentage de
-     * hauteur n'a pas toujours de reference et la pastille s'aplatit. */
-    width: 34%;
-    aspect-ratio: 1;
+    /* Un carre centre, defini par ses quatre cotes : la pastille suit la case
+     * quelle que soit sa taille, et reste ronde. */
+    inset: 33%;
     border-radius: 50%;
     background: color-mix(in srgb, var(--accent) 88%, white);
     box-shadow: 0 1px 3px rgba(0, 0, 0, .3);

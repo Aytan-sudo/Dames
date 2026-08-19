@@ -94,7 +94,7 @@ exactement ceux que le navigateur télécharge.
 ## Développer
 
 ```bash
-npm test      # 186 vérifications : les deux moteurs, la saisie, l'adversaire, la page
+npm test      # 188 vérifications : les deux moteurs, la saisie, l'adversaire, la page
 npm run serve # http://localhost:8765
 ```
 

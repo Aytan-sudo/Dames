@@ -131,6 +131,15 @@ check('chaque variante se resume en une phrase',
 check('la feuille de style s adapte a la taille du damier',
     style.includes('repeat(var(--cote, 10), 1fr)') && style.includes('calc(100% / var(--cote, 10))'));
 
+// Les rangees du damier doivent etre declarees. Laissees en `auto`, elles se
+// dimensionnent sur leur contenu : il a suffi qu'une case affiche un numero et
+// une pastille de coup possible pour que toute sa rangee s'allonge, et que les
+// cases cessent d'etre carrees.
+check('les rangees du damier ne dependent pas de leur contenu',
+    style.includes('grid-template-rows: repeat(var(--cote, 10), 1fr)'));
+check('rien de ce qu une case affiche ne peut changer sa taille',
+    /\.numero, \.case\.cible::after \{[^}]*position: absolute/s.test(style));
+
 // --- Geste ----------------------------------------------------------------
 
 // La couche des pieces couvre le damier entier. Si elle recevait les appuis,

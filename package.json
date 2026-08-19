@@ -1,6 +1,6 @@
 {
     "name": "dames",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "private": true,
     "description": "Les dames internationales 10×10 et les dames anglaises 8×8, contre l'ordinateur ou à deux sur le même écran.",
     "type": "module",
