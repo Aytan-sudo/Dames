@@ -178,6 +178,14 @@ button {
 .icone svg .moitie { fill: currentColor; stroke: none; }
 .icone svg.plein { fill: currentColor; stroke: none; }
 
+/* Le bouton du son porte les deux dessins et n'en montre qu'un : les ondes
+   quand il sonne, la croix quand il est coupe. Un seul bouton, deux etats
+   lisibles d'un coup d'oeil — et le coupe s'efface un peu, pour qu'on voie
+   sans lire. */
+.icone[aria-pressed="false"] { opacity: .62; }
+.icone[aria-pressed="false"] .ondes { display: none; }
+.icone[aria-pressed="true"] .croix { display: none; }
+
 /* Pendules -------------------------------------------------------------- */
 
 .pendules {

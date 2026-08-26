@@ -4,7 +4,7 @@
 // valide, le rendu le montre, l'ordinateur repond. Aucune regle du jeu ne vit
 // ici ; app.js ne fait que decider quand chaque module parle.
 
-import { BLANC, NOIR, campDe, nomCamp, prisesObligatoires } from './regles.js';
+import { BLANC, NOIR, campDe, estDame, nomCamp, prisesObligatoires } from './regles.js';
 import * as P from './partie.js';
 import { departs, suites, prisesEnCours, avancer } from './selection.js';
 import { creerRendu } from './rendu.js';
@@ -12,6 +12,10 @@ import { geometrieDe, maisonDe } from './variantes.js';
 import { ecouterDamier, ecouterClavier } from './entree.js';
 import { choisirCoup } from './ia.js';
 import { appliquer as appliquerTheme, modeSuivant } from './themes.js';
+import {
+    preparerSon, surveillerVisibilite,
+    sonPose, sonPrise, sonCouronnement, sonRefus, sonVictoire, sonDefaite, sonNulle
+} from './son.js';
 import {
     chargerPreferences, enregistrerPreferences,
     chargerStats, cleStats, enregistrerFin, effacerStats,
@@ -44,6 +48,12 @@ const auJoueur = () => !soloEnCours() || P.trait(partie) === campDuJoueur();
 const vibrer = motif => {
     if (preferences.vibration && navigator.vibrate) navigator.vibrate(motif);
 };
+
+const sonner = son => { if (preferences.sons) son(); };
+
+// Un refus se voit et s'entend : la piece tressaille, une note retombe. Sans
+// l'un ou l'autre, le joueur croit que l'appui n'a pas ete pris et recommence.
+const refuser = numero => { rendu.refuser(numero); sonner(sonRefus); };
 
 const ranger = () => enregistrerPartie({
     ...P.serialiser(partie),
@@ -102,8 +112,23 @@ async function jouerCoup(coup) {
     occupe = true;
     rafraichir();
 
+    // Releve avant de jouer : c'est la seule facon de savoir si la piece
+    // *devient* dame, plutot que d'en etre deja une.
+    const etaitDame = estDame(partie.position.cases[coup.de]);
+
     if (!P.jouer(partie, coup)) { occupe = false; rafraichir(); return; }
     if (coup.prises.length) vibrer(coup.prises.length > 1 ? [12, 40, 12] : 12);
+
+    // Les notes se calent sur l'animation : une par saut, comme les pieces
+    // qu'on voit partir. Le couronnement attend la derniere case — aux
+    // internationales, un pion qui traverse la rangee adverse au milieu d'une
+    // rafle reste pion, et l'entendre sacrer trop tot serait un mensonge.
+    const saut = rendu.dureeSaut() / 1000;
+    if (coup.prises.length) sonner(() => sonPrise(coup.prises.length, saut));
+    else sonner(sonPose);
+    if (!etaitDame && estDame(partie.position.cases[coup.vers])) {
+        sonner(() => sonCouronnement(coup.chemin.length * saut));
+    }
 
     await rendu.jouer(partie.position, coup);
 
@@ -162,6 +187,12 @@ function conclure() {
     }
 
     vibrer(gagnant === 0 ? [18, 60, 18] : [24, 60, 24, 60, 24]);
+    // A deux sur le meme ecran, personne n'a « perdu » du point de vue de la
+    // page : les deux joueurs sont devant. La fanfare y salue donc les deux
+    // camps, et seul le solo connait la defaite.
+    if (gagnant === 0) sonner(sonNulle);
+    else if (soloEnCours() && gagnant !== campDuJoueur()) sonner(sonDefaite);
+    else sonner(sonVictoire);
     afficherFin();
     ranger();
 }
@@ -198,7 +229,7 @@ function afficherFin() {
 
 function surCase(numero) {
     if (occupe || partie.resultat) return;
-    if (!auJoueur()) { rendu.refuser(numero); return; }
+    if (!auJoueur()) { refuser(numero); return; }
 
     const coups = P.coupsLegaux(partie);
     const possibles = departs(coups);
@@ -218,7 +249,7 @@ function surCase(numero) {
             rafraichir();
             return;
         }
-        if (selection.etapes.length) { rendu.refuser(numero); return; }
+        if (selection.etapes.length) { refuser(numero); return; }
         selection = { depart: 0, etapes: [] };
         rafraichir();
         return;
@@ -234,7 +265,7 @@ function surCase(numero) {
     // obligatoire ailleurs sur le damier. Le dire evite de croire a une panne.
     const piece = partie.position.cases[numero];
     if (piece && campDe(piece) === P.trait(partie)) {
-        rendu.refuser(numero);
+        refuser(numero);
         const prises = prisesObligatoires(partie.position);
         if (prises) ui.annoncer(`La prise est obligatoire : ${prises} pièce${prises > 1 ? 's' : ''} à manger ailleurs.`);
         else ui.annoncer('Cette pièce ne peut pas bouger.');
@@ -289,7 +320,13 @@ function brancher() {
         u: annulerCoup,
         annuler: annulerCoup,
         t: () => { changer({ mode: modeSuivant(preferences.mode) }); appliquerTheme(preferences); },
-        r: () => ouvrirReglages(),
+        // `R` relance la partie, comme partout ailleurs dans la collection.
+        // Il ouvrait les reglages jusqu'ici : la lettre est trop attendue en
+        // « relancer » pour qu'on la laisse ailleurs, et les options prennent
+        // leur propre initiale.
+        r: () => nouvellePartie(),
+        o: () => ouvrirReglages(),
+        s: () => basculerSon(),
         '?': () => ui.ouvrir(ui.elements.dialogueAide),
         escape: () => { selection = { depart: 0, etapes: [] }; rafraichir(); }
     });
@@ -298,6 +335,7 @@ function brancher() {
     ui.elements.boutonAnnuler.addEventListener('click', annulerCoup);
     ui.elements.boutonAide.addEventListener('click', () => ui.ouvrir(ui.elements.dialogueAide));
     ui.elements.boutonReglages.addEventListener('click', ouvrirReglages);
+    ui.elements.boutonSon.addEventListener('click', basculerSon);
     ui.elements.boutonMode.addEventListener('click', () => {
         changer({ mode: modeSuivant(preferences.mode) });
         appliquerTheme(preferences);
@@ -311,6 +349,8 @@ function brancher() {
         changer({ indices: evenement.target.checked }));
     ui.elements.optionNumeros.addEventListener('change', evenement =>
         changer({ numeros: evenement.target.checked }));
+    ui.elements.optionSons.addEventListener('change', evenement =>
+        changer({ sons: evenement.target.checked }));
     ui.elements.optionVibration.addEventListener('change', evenement =>
         changer({ vibration: evenement.target.checked }));
 
@@ -329,6 +369,13 @@ function brancher() {
             if (preferences.mode === 'auto') { appliquerTheme(preferences); ui.majReglages(preferences); }
         });
     }
+}
+
+// Le bouton du bandeau et la case des Options touchent au meme reglage :
+// `changer` repasse par `majReglages`, qui remet les deux d'accord.
+function basculerSon() {
+    changer({ sons: !preferences.sons });
+    if (preferences.sons) sonner(sonPose);   // pour entendre ce qu'on vient de rallumer
 }
 
 function ouvrirReglages() {
@@ -368,6 +415,14 @@ function reprendre() {
 function demarrer() {
     appliquerTheme(preferences);
     brancher();
+
+    // Le damier se joue sur `pointerdown`, qui est une activation : de ce
+    // cote, Dames est sain. Mais qui prend les noirs voit l'ordinateur ouvrir
+    // la partie, et ce tout premier son nait d'un `setTimeout`, pas d'un
+    // geste — iOS refuserait de demarrer le contexte. On le prepare donc au
+    // premier appui sur la page, quel qu'il soit.
+    preparerSon(document, () => preferences.sons);
+    surveillerVisibilite(document);
     ui.majReglages(preferences);
     ui.majStats(stats, preferences);
 

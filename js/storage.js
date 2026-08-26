@@ -23,6 +23,7 @@ export const PREFERENCES_PAR_DEFAUT = {
     regles: {},
     indices: true,             // allumer les cases jouables
     numeros: false,            // la numerotation officielle sur le damier
+    sons: true,
     vibration: true
 };
 

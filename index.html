@@ -40,7 +40,14 @@
                 <path d="M12 3.4a8.6 8.6 0 0 0 0 17.2Z" class="moitie"/>
             </svg>
         </button>
-        <button type="button" class="icone" id="bouton-reglages" aria-label="Réglages">
+        <button type="button" class="icone" id="bouton-son" aria-pressed="true" aria-label="Couper le son">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 9.5h3.4L12 5.6v12.8L7.4 14.5H4z" class="moitie"/>
+                <path d="M15.6 9.2a4 4 0 0 1 0 5.6M18.2 6.8a7.5 7.5 0 0 1 0 10.4" class="ondes"/>
+                <path d="m16 9.5 5 5m0-5-5 5" class="croix"/>
+            </svg>
+        </button>
+        <button type="button" class="icone" id="bouton-reglages" aria-label="Options">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="plein">
                 <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.4 3.5c0 .5-.05.98-.13 1.45l2.05 1.6-2 3.46-2.42-.98a8.2 8.2 0 0 1-2.5 1.45L15 21.9H11l-.4-2.92a8.2 8.2 0 0 1-2.5-1.45l-2.42.98-2-3.46 2.05-1.6a8.6 8.6 0 0 1 0-2.9L3.68 8.95l2-3.46 2.42.98a8.2 8.2 0 0 1 2.5-1.45L11 2.1h4l.4 2.92c.9.33 1.74.82 2.5 1.45l2.42-.98 2 3.46-2.05 1.6c.08.47.13.95.13 1.45Z"/>
             </svg>
@@ -90,7 +97,7 @@
 </dialog>
 
 <dialog id="dialogue-reglages" class="feuille">
-    <h2>Réglages</h2>
+    <h2>Options</h2>
 
     <h3>Jeu</h3>
     <div class="segments" id="segments-variante" role="group" aria-label="Variante de dames"></div>
@@ -123,6 +130,10 @@
     <div class="pastilles" id="pastilles-palette" role="group" aria-label="Couleurs du damier"></div>
 
     <h3>Confort</h3>
+    <label class="option">
+        <input type="checkbox" id="option-sons">
+        <span><strong>Sons</strong><small>Des notes courtes sur la pose, la prise et le couronnement. Une rafle monte d'un degré par pièce mangée.</small></span>
+    </label>
     <label class="option">
         <input type="checkbox" id="option-indices">
         <span><strong>Montrer les coups possibles</strong><small>Les cases jouables s'allument. La prise étant obligatoire, elles sont parfois peu nombreuses.</small></span>
@@ -180,14 +191,14 @@
     <p>Touchez votre pièce, puis la case où elle va. Pour une rafle, touchez chaque case d'arrivée l'une après l'autre&nbsp;; quand une seule rafle reste possible, elle part d'un coup.</p>
 
     <h3>Règles maison</h3>
-    <p>Les réglages permettent de lever les règles officielles une par une&nbsp;: rendre la prise facultative, laisser choisir sa prise plutôt que la plus longue, empêcher le pion de manger en arrière, clouer la dame à une case. De quoi apprendre, ou jouer comme on jouait chez soi.</p>
+    <p>Les options permettent de lever les règles officielles une par une&nbsp;: rendre la prise facultative, laisser choisir sa prise plutôt que la plus longue, empêcher le pion de manger en arrière, clouer la dame à une case. De quoi apprendre, ou jouer comme on jouait chez soi.</p>
     <p>Une partie jouée ainsi n'est pas comptée dans le tableau&nbsp;: les victoires n'y auraient plus toutes la même valeur.</p>
 
     <h3>Nulles</h3>
     <p>Trois fois la même position, vingt-cinq coups de dames sans prise ni mouvement de pion, ou une finale à trois contre une dame qui s'éternise&nbsp;: la partie est nulle.</p>
 
-    <h3>Raccourcis</h3>
-    <p><kbd>N</kbd> nouvelle partie · <kbd>U</kbd> ou <kbd>Ctrl</kbd>+<kbd>Z</kbd> annuler · <kbd>T</kbd> thème · <kbd>R</kbd> réglages</p>
+    <h3>Au clavier</h3>
+    <p><kbd>N</kbd> ou <kbd>R</kbd> nouvelle partie · <kbd>U</kbd> ou <kbd>Ctrl</kbd>+<kbd>Z</kbd> annuler · <kbd>T</kbd> thème · <kbd>O</kbd> options · <kbd>S</kbd> son · <kbd>?</kbd> règles · <kbd>Échap</kbd> ferme</p>
 
     <div class="pied">
         <button type="button" class="bouton primaire" data-fermer>Jouer</button>

@@ -13,7 +13,7 @@ import { BLANC, NOIR } from './regles.js';
 // package.json et avec le cache du service worker — sans quoi une correction
 // publiee n'atteint jamais ceux qui ont installe le jeu, et personne ne peut
 // dire quelle version il a sous les yeux. Un test verifie les trois.
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 const $ = id => document.getElementById(id);
 
@@ -31,6 +31,7 @@ export const elements = {
     boutonAnnuler: $('bouton-annuler'),
     boutonNouvelle: $('bouton-nouvelle'),
     boutonMode: $('bouton-mode'),
+    boutonSon: $('bouton-son'),
     boutonReglages: $('bouton-reglages'),
     boutonAide: $('bouton-aide'),
     dialogueFin: $('dialogue-fin'),
@@ -55,6 +56,7 @@ export const elements = {
     pastillesPalette: $('pastilles-palette'),
     optionIndices: $('option-indices'),
     optionNumeros: $('option-numeros'),
+    optionSons: $('option-sons'),
     optionVibration: $('option-vibration'),
     stats: $('stats'),
     version: $('version'),
@@ -182,7 +184,13 @@ export function majReglages(preferences) {
     elements.blocOrdinateur.hidden = preferences.adversaire !== 'ordinateur';
     elements.optionIndices.checked = preferences.indices;
     elements.optionNumeros.checked = preferences.numeros;
+    elements.optionSons.checked = preferences.sons;
     elements.optionVibration.checked = preferences.vibration;
+
+    // Le bouton d'en-tete et la case des Options disent la meme chose : c'est
+    // le meme reglage, et les deux doivent se suivre sans qu'on y pense.
+    elements.boutonSon.setAttribute('aria-pressed', String(Boolean(preferences.sons)));
+    elements.boutonSon.setAttribute('aria-label', preferences.sons ? 'Couper le son' : 'Rétablir le son');
 
     document.body.classList.toggle('avec-numeros', preferences.numeros);
     elements.boutonMode.setAttribute('aria-label',

@@ -1,11 +1,12 @@
 {
     "name": "dames",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "private": true,
     "description": "Les dames internationales 10×10 et les dames anglaises 8×8, contre l'ordinateur ou à deux sur le même écran. Quatre niveaux, et des règles qu'on peut lever.",
     "type": "module",
     "scripts": {
-        "test": "node tests/test-damier.mjs && node tests/test-regles.mjs && node tests/test-anglaise.mjs && node tests/test-selection.mjs && node tests/test-partie.mjs && node tests/test-maison.mjs && node tests/test-ia.mjs && node tests/test-storage.mjs && node tests/test-page.mjs",
+        "test": "node tests/test-damier.mjs && node tests/test-regles.mjs && node tests/test-anglaise.mjs && node tests/test-selection.mjs && node tests/test-partie.mjs && node tests/test-maison.mjs && node tests/test-ia.mjs && node tests/test-storage.mjs && node tests/test-son.mjs && node tests/test-page.mjs",
+        "check": "node --check js/app.js && node --check js/damier.js && node --check js/entree.js && node --check js/ia.js && node --check js/partie.js && node --check js/regles.js && node --check js/rendu.js && node --check js/selection.js && node --check js/son.js && node --check js/storage.js && node --check js/themes.js && node --check js/ui.js && node --check js/variantes.js && node --check sw.js",
         "serve": "python3 -m http.server 8765"
     }
 }

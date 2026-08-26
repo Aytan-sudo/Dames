@@ -46,6 +46,26 @@ check('la page charge le moteur, la saisie et l adversaire',
 check('aucun module du dossier n est orphelin',
     tous.every(nom => charges.has(nom)), tous.filter(nom => !charges.has(nom)).join(' '));
 
+// --- Outillage ------------------------------------------------------------
+
+// Un module qu'aucun script ne controle, une suite que personne ne lance : ni
+// l'un ni l'autre ne fait de bruit, et les deux laissent passer la faute qu'ils
+// existaient pour attraper.
+const nonControles = tous.filter(nom => !paquet.scripts.check.includes(`js/${nom}`));
+check('npm run check couvre chaque module', nonControles.length === 0, nonControles.join(' '));
+check('les scripts npm attendus existent',
+    ['test', 'check', 'serve'].every(nom => typeof paquet.scripts[nom] === 'string'));
+
+const suites = readdirSync(join(racine, 'tests')).filter(nom => nom.startsWith('test-'));
+const nonLancees = suites.filter(nom => !paquet.scripts.test.includes(`tests/${nom}`));
+check('npm test lance chaque suite', nonLancees.length === 0, nonLancees.join(' '));
+
+const ci = lire('.github/workflows/tests.yml');
+check('la CI lance les tests et le controle de syntaxe',
+    ci.includes('npm test') && ci.includes('npm run check') && ci.includes('node-version: 22'));
+check('la CI se declenche sur push et sur pull request',
+    ci.includes('push:') && ci.includes('pull_request:'));
+
 // --- Cache hors ligne -----------------------------------------------------
 
 const coquille = [...worker.matchAll(/^\s+'([^']+)',?$/gm)].map(([, chemin]) => chemin);
@@ -55,6 +75,17 @@ check('il met en cache la feuille de style et le manifeste',
     coquille.includes('css/style.css') && coquille.includes('manifest.webmanifest'));
 const manquants = coquille.filter(chemin => chemin !== './' && !existsSync(join(racine, chemin)));
 check('tous les fichiers de la coquille existent', manquants.length === 0, manquants.join(' '));
+// iOS n'accepte pas le SVG comme icone d'ecran d'accueil : sans le PNG dans la
+// coquille, un jeu installe puis ouvert hors ligne perd son icone.
+const icones = readdirSync(join(racine, 'assets')).filter(nom => !coquille.includes(`assets/${nom}`));
+check('la coquille emporte toutes les icones', icones.length === 0, icones.join(' '));
+
+// Reseau d'abord, cache en secours. Le cache d'abord sert une version perimee
+// jusqu'a ce que le navigateur renouvelle le worker — et, en developpement ou
+// tous les jeux partagent `localhost`, sert ses fichiers a ses voisins.
+check('le service worker sert le reseau d\'abord', /respondWith\(\s*fetch\(/.test(worker));
+check('il retombe sur le cache quand le reseau manque',
+    /\.catch\(\(\) => caches\.match\(/.test(worker));
 
 // Le numero de version vit a trois endroits, et les trois doivent s'accorder.
 // Celui du cache surtout : un cache qui garde son nom garde son contenu, donc
@@ -125,6 +156,45 @@ check('les niveaux sont ranges en deux colonnes',
     page.includes('class="segments paire" id="segments-niveau"') && style.includes('.segments.paire'));
 check('le niveau choisi s explique sous les boutons',
     page.includes('id="explication-niveau"') && NIVEAUX.every(niveau => niveau.resume?.length > 40));
+
+// --- Clavier --------------------------------------------------------------
+
+// Un raccourci deplace ne casse rien : il laisse simplement une aide qui ment,
+// et le joueur appuie sur une touche qui ne fait plus ce qu'elle annonce. On
+// compare donc les touches branchees a celles que l'aide promet.
+const app = lire('js/app.js');
+// L'appel se referme sur sa propre indentation : un `});` de fin de ligne
+// interne — il y en a un dans le raccourci de theme — ne doit pas passer pour
+// la fin de la liste.
+const debutClavier = app.indexOf('ecouterClavier({');
+const blocClavier = app.slice(debutClavier, app.indexOf('\n    });', debutClavier));
+const branchees = [...blocClavier.matchAll(/^\s{8}'?([a-z?]+)'?:/gm)].map(([, touche]) => touche);
+
+// Ce que l'aide doit montrer pour chaque touche branchee.
+const AFFICHAGE = { annuler: '<kbd>Ctrl</kbd>+<kbd>Z</kbd>', escape: '<kbd>Échap</kbd>' };
+const affiche = touche => AFFICHAGE[touche] ?? `<kbd>${touche.toUpperCase()}</kbd>`;
+
+const clavier = page.slice(page.indexOf('<h3>Au clavier</h3>'), page.indexOf('</p>', page.indexOf('<h3>Au clavier</h3>')));
+const tues = branchees.filter(touche => !clavier.includes(affiche(touche)));
+check(`les ${branchees.length} touches branchees sont toutes dans l aide`,
+    branchees.length >= 7 && tues.length === 0, tues.join(' '));
+
+// La convention est ferme la-dessus : `R` relance, il ne signifie jamais
+// « reglages ». C'est la seule touche dont le sens est fixe d'avance.
+check('R relance la partie et n ouvre pas les options',
+    /\br: \(\) => nouvellePartie\(\)/.test(blocClavier) && /\bo: \(\) => ouvrirReglages\(\)/.test(blocClavier));
+
+// --- Son ------------------------------------------------------------------
+
+// Le bouton du bandeau porte les deux dessins et n'en montre qu'un. Sans les
+// deux regles de style, il les montre tous les deux : un haut-parleur barre qui
+// sonne quand meme, et personne ne saurait dire dans quel etat il est.
+check('le bouton du son a ses deux etats dans la feuille de style',
+    /id="bouton-son"[^>]*aria-pressed/.test(page)
+    && style.includes('.icone[aria-pressed="false"] .ondes')
+    && style.includes('.icone[aria-pressed="true"] .croix'));
+check('le son se regle aussi depuis les options',
+    page.includes('id="option-sons"'));
 
 // --- Regles maison --------------------------------------------------------
 

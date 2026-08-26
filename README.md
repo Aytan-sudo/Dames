@@ -4,6 +4,30 @@ Les dames internationales 10×10 et les dames anglaises 8×8, contre l'ordinateu
 ou à deux sur le même écran. Jouable au doigt comme à la souris, hors ligne,
 sans serveur ni dépendance. Une page statique posée sur GitHub Pages.
 
+**Jouer : https://aytan-sudo.github.io/Dames/**
+
+## Version 1.3.0
+
+**Le son arrive**, en synthèse WebAudio — pas un octet d'audio dans le dépôt.
+Six timbres : la pose, la prise, le couronnement, le refus, et trois fins qui ne
+se confondent pas. La rafle n'a pas de timbre à elle : c'est la note de prise
+répétée, une par pièce mangée, calée sur l'animation et montant d'un degré à
+chaque fois — manger trois pièces s'entend comme trois pièces, et la prise
+majoritaire, qui fait tout le jeu international, s'entend enfin. Bouton dans
+l'en-tête, case dans les Options, raccourci <kbd>S</kbd>.
+
+Tout est écrit au-dessus de 300 Hz, et un test l'y garde. En dessous, un
+haut-parleur de téléphone ne restitue à peu près rien : la note part, elle
+n'arrive pas, et rien ne signale l'erreur. Le jeu se voulant mobile d'abord,
+c'est un défaut et pas un réglage.
+
+**<kbd>R</kbd> relance la partie** au lieu d'ouvrir les réglages, qui
+s'appellent maintenant **Options** et répondent à <kbd>O</kbd>. Le service
+worker sert le **réseau d'abord** : une version publiée arrive désormais sans
+manœuvre, et le cache ne prend le relais que hors ligne. `assets/icon-180.png`
+manquait à la coquille — un jeu installé puis ouvert hors ligne y perdait son
+icône iOS. Enfin, la CI rejoue `npm test` et `npm run check` à chaque poussée.
+
 ## Jouer
 
 Touchez votre pièce, puis la case où elle va. Les cases jouables s'allument —
@@ -15,8 +39,9 @@ nécessaire : une dame peut manger les mêmes pions par deux chemins différents
 et les deux ne la laissent pas au même endroit. Quand une seule rafle reste
 possible, elle part d'un seul appui.
 
-<kbd>N</kbd> nouvelle partie · <kbd>U</kbd> ou <kbd>Ctrl</kbd>+<kbd>Z</kbd>
-annuler · <kbd>T</kbd> thème · <kbd>R</kbd> réglages · <kbd>?</kbd> règles.
+<kbd>N</kbd> ou <kbd>R</kbd> nouvelle partie · <kbd>U</kbd> ou
+<kbd>Ctrl</kbd>+<kbd>Z</kbd> annuler · <kbd>T</kbd> thème · <kbd>O</kbd>
+options · <kbd>?</kbd> règles · <kbd>Échap</kbd> ferme.
 
 ## Les deux jeux
 
@@ -74,11 +99,11 @@ meilleur coup :
 Chaque niveau bat le précédent dix fois sur dix en tournoi interne, et le test
 de l'échelle le vérifie à chaque exécution.
 
-## Réglages
+## Options
 
 Variante, adversaire et niveau, camp joué, thème clair ou sombre (ou celui du
 système), six palettes de damier, cases jouables, numérotation officielle des
-cases, vibration. Les statistiques sont tenues par variante et par niveau : une
+cases, sons, vibration. Les statistiques sont tenues par variante et par niveau : une
 victoire aux anglaises contre le niveau facile n'a rien à voir avec une victoire
 aux internationales en difficile.
 
@@ -119,6 +144,9 @@ exactement ceux que le navigateur télécharge.
   nulles, sauvegarde. On enregistre les coups, pas les positions : une partie
   relue est rejouée et validée par les règles.
 - `js/ia.js` — l'adversaire.
+- `js/son.js` — six timbres de synthèse, aucun fichier audio. La prise part
+  au-dessus de la pose et retombe ; le refus dit non par la chute et non par la
+  profondeur, une note grave ne sortant pas du haut-parleur d'un téléphone.
 - `js/rendu.js` — chaque pièce est un élément placé par `transform`. Déplacer
   une pièce, c'est changer deux variables CSS ; la transition fait le reste.
 - `css/style.css` — les palettes, la géométrie du plateau, les animations. Les
@@ -128,7 +156,8 @@ exactement ceux que le navigateur télécharge.
 ## Développer
 
 ```bash
-npm test      # 188 vérifications : les deux moteurs, la saisie, l'adversaire, la page
+npm test      # 273 vérifications : les deux moteurs, la saisie, l'adversaire, le son, la page
+npm run check # node --check sur chaque module
 npm run serve # http://localhost:8765
 ```
 
@@ -143,4 +172,6 @@ l'évaluation (la machine ne doit pas jouer mieux d'un côté que de l'autre), e
 la cohérence de la page : modules déclarés au service worker, identifiants
 cherchés par l'interface, accord des palettes entre la feuille de style et le
 JavaScript, et concordance du numéro de version entre `package.json`, les
-réglages et le cache hors ligne.
+options et le cache hors ligne. Le son se teste sans oreille : un contexte audio
+factice fait tourner le vrai module et relève les hauteurs réellement émises,
+rampes comprises, pour qu'aucune ne redescende sous le plancher des 300 Hz.

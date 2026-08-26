@@ -83,6 +83,11 @@ export function creerRendu({ plateau, damier, couche }) {
     const animationsCoupees = () =>
         typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    // La duree reellement passee sur chaque saut : zero quand le joueur a
+    // demande moins d'animations. Le son s'y cale, pour que les notes d'une
+    // rafle suivent les pieces au lieu de trainer derriere elles.
+    const dureeSaut = () => (animationsCoupees() ? 0 : DUREE_SAUT);
+
     // Anime un coup deja joue dans le modele. Chaque saut deplace la piece,
     // marque la victime au passage, et ce n'est qu'a la fin que les pieces
     // mangees quittent le damier — c'est la regle, et c'est aussi le seul
@@ -144,5 +149,5 @@ export function creerRendu({ plateau, damier, couche }) {
         setTimeout(() => element.classList.remove('refus'), 320);
     }
 
-    return { poser, dessiner, jouer, marquer, refuser, DUREE_SAUT };
+    return { poser, dessiner, jouer, marquer, refuser, dureeSaut, DUREE_SAUT };
 }
