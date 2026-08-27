@@ -13,7 +13,7 @@
 // Le nom du cache porte le numero de version : une version publiee sans le
 // changer resterait invisible pour ceux qui ont installe le jeu.
 
-const VERSION = 'dames-1.3.0';
+const VERSION = 'dames-1.3.1';
 
 const COQUILLE = [
     './',

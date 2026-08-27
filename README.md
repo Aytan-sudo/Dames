@@ -6,6 +6,11 @@ sans serveur ni dépendance. Une page statique posée sur GitHub Pages.
 
 **Jouer : https://aytan-sudo.github.io/Dames/**
 
+## Version 1.3.1
+
+- les cibles tactiles de l'interface passent à 44 px (boutons d'en-tête,
+  boutons texte, listes déroulantes), conformément à la convention.
+
 ## Version 1.3.0
 
 **Le son arrive**, en synthèse WebAudio — pas un octet d'audio dans le dépôt.

@@ -13,7 +13,7 @@ import { BLANC, NOIR } from './regles.js';
 // package.json et avec le cache du service worker — sans quoi une correction
 // publiee n'atteint jamais ceux qui ont installe le jeu, et personne ne peut
 // dire quelle version il a sous les yeux. Un test verifie les trois.
-export const VERSION = '1.3.0';
+export const VERSION = '1.3.1';
 
 const $ = id => document.getElementById(id);
 
