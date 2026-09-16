@@ -6,6 +6,12 @@ sans serveur ni dépendance. Une page statique posée sur GitHub Pages.
 
 **Jouer : https://aytan-sudo.github.io/Dames/**
 
+## Version 1.4.1 — Passeport 1.8.0
+
+Module commun du passeport 1.8.0 : **Maze for Adventurers** rejoint le thème
+Aventure, aux côtés de Snake. Toute la collection est désormais raccordée. Rien
+ne change dans le jeu.
+
 ## Version 1.4.0 — Le passeport commun
 
 Ouvert depuis le hub avec un passeport, le jeu range préférences, statistiques
