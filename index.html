@@ -10,12 +10,18 @@
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="commun/passeport.css">
+<script src="commun/passeport.js"></script>
+<script src="commun/liaison.js" defer></script>
 <script>
     // Pose le theme et la palette avant le premier rendu. Charges par app.js,
     // ils arriveraient apres coup et le damier changerait de couleur sous les
     // yeux du joueur a chaque ouverture.
     try {
-        const enregistrees = JSON.parse(localStorage.getItem('dames.preferences') || '{}');
+        // Avec un passeport, les reglages sont ceux du joueur ; en mode
+        // invite, ceux de l'appareil, comme avant.
+        const magasin = globalThis.Passeport?.stockageJeu('dames') || localStorage;
+        const enregistrees = JSON.parse(magasin.getItem('dames.preferences') || '{}');
         // Liste blanche : ces valeurs viennent du stockage et atterrissent
         // dans des attributs. « auto » ne pose rien, la feuille de style suit
         // alors le systeme.
@@ -29,6 +35,9 @@
 </script>
 </head>
 <body>
+
+<div class="passeport-ruban" data-passeport-ruban data-jeu="Dames"
+     data-consigne="Tampon : une partie gagnée ou 20 coups"></div>
 
 <header class="barre">
     <button type="button" class="icone" id="bouton-aide" aria-label="Règles du jeu">?</button>

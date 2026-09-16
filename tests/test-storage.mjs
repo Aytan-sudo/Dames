@@ -26,6 +26,8 @@ const {
     PREFERENCES_PAR_DEFAUT, chargerPreferences, enregistrerPreferences,
     chargerStats, statsDe, cleStats, enregistrerFin, effacerStats,
     chargerPartie, enregistrerPartie, oublierPartie
+,
+    compterCoupPasseport
 } = await import('../js/storage.js');
 
 const { check, report } = counter();
@@ -132,5 +134,27 @@ check('oublier la partie ne leve pas', (() => {
     try { oublierPartie(); return true; } catch { return false; }
 })());
 enPanne = false;
+
+// ----------------------------------------------------------- le passeport
+//
+// Le compteur de coups ne vit que dans l'espace d'un joueur. En mode invite il
+// rend `null` et n'ecrit rien : sans passeport, le stockage du jeu reste
+// exactement ce qu'il etait avant le raccordement.
+
+check('en mode invite, rien n\'est compte', compterCoupPasseport('2026-09-16') === null);
+check('et rien n\'est ecrit dans le localStorage', !memoire.has('dames.passeport'));
+
+const espace = new Map();
+const profil = {
+    getItem: cle => (espace.has(cle) ? espace.get(cle) : null),
+    setItem: (cle, valeur) => espace.set(cle, String(valeur)),
+    removeItem: cle => espace.delete(cle)
+};
+check('le premier coup du jour compte pour un', compterCoupPasseport('2026-09-16', profil) === 1);
+for (let i = 2; i <= 20; i++) compterCoupPasseport('2026-09-16', profil);
+check('le vingtieme coup est bien le vingtieme', JSON.parse(espace.get('dames.passeport')).coups === 20);
+check('le lendemain repart de un', compterCoupPasseport('2026-09-17', profil) === 1);
+espace.set('dames.passeport', '{ abime');
+check('un compteur illisible repart de un', compterCoupPasseport('2026-09-17', profil) === 1);
 
 report();

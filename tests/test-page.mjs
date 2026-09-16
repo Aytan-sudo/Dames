@@ -145,8 +145,19 @@ check('le mode sombre est prevu deux fois : choisi, et suivi du systeme',
     style.includes(':root[data-mode="sombre"]') && style.includes('prefers-color-scheme: dark'));
 check('un theme clair choisi resiste a un systeme sombre',
     style.includes(':root:not([data-mode="clair"])'));
+// Avec un passeport, le magasin est celui du joueur ; sans, le localStorage.
+// Les deux chemins doivent viser la meme cle que le module de stockage.
 check('le script en tete de page lit la meme cle que le stockage',
-    page.includes("localStorage.getItem('dames.preferences')"));
+    page.includes("getItem('dames.preferences')")
+    && page.includes("Passeport?.stockageJeu('dames')"));
+
+// Le bandeau du passeport annonce le jeu au module commun : sans `data-jeu`,
+// il s'affiche mais aucun tampon ne peut etre attribue.
+check('la page porte le bandeau du passeport',
+    page.includes('data-passeport-ruban data-jeu="Dames"')
+    && page.includes('commun/passeport.js') && page.includes('commun/liaison.js'));
+check('le module commun est disponible hors ligne',
+    ['passeport.js', 'liaison.js', 'passeport.css'].every(nom => coquille.includes(`commun/${nom}`)));
 check('les trois modes et les quatre niveaux sont proposes',
     MODES.length === 3 && NIVEAUX.length === 4);
 

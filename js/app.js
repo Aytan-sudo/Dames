@@ -18,7 +18,7 @@ import {
 } from './son.js';
 import {
     chargerPreferences, enregistrerPreferences,
-    chargerStats, cleStats, enregistrerFin, effacerStats,
+    chargerStats, cleStats, enregistrerFin, effacerStats, compterCoupPasseport,
     chargerPartie, enregistrerPartie, oublierPartie
 } from './storage.js';
 import * as ui from './ui.js';
@@ -107,7 +107,20 @@ function nouvellePartie() {
     if (!auJoueur()) tourOrdinateur();
 }
 
+// Le tampon du passeport : une partie gagnee le donne tout de suite ; sinon,
+// c'est le vingtieme coup de la journee, toutes parties confondues. Les coups
+// de l'ordinateur ne comptent pas. En mode invite, rien n'est compte ni ecrit.
+function noterPasseport({ coupJoue = false, reussite = false } = {}) {
+    const joueur = globalThis.Passeport;
+    if (!joueur?.profilId) return;
+    const coups = coupJoue ? compterCoupPasseport(joueur.jourLocal()) : 0;
+    if (coups !== null) joueur.noter('Dames', coups, reussite);
+}
+
 async function jouerCoup(coup) {
+    // Releve avant que le trait ne change : apres, tout coup paraitrait venir
+    // de l'adversaire.
+    const duJoueur = auJoueur();
     selection = { depart: 0, etapes: [] };
     occupe = true;
     rafraichir();
@@ -117,6 +130,7 @@ async function jouerCoup(coup) {
     const etaitDame = estDame(partie.position.cases[coup.de]);
 
     if (!P.jouer(partie, coup)) { occupe = false; rafraichir(); return; }
+    if (duJoueur) noterPasseport({ coupJoue: true });   // un coup accepte, jamais un refus
     if (coup.prises.length) vibrer(coup.prises.length > 1 ? [12, 40, 12] : 12);
 
     // Les notes se calent sur l'animation : une par saut, comme les pieces
@@ -173,14 +187,16 @@ async function tourOrdinateur() {
 // ne doit pas ajouter deux defaites au tableau.
 function conclure() {
     const { gagnant } = partie.resultat;
+    // A deux sur le meme ecran, « victoire » se lit du cote des blancs.
+    const vainqueur = soloEnCours() ? campDuJoueur() : BLANC;
+    // Une partie gagnee vaut le tampon, y compris aux regles maison : le
+    // passeport recompense d'avoir joue, pas d'avoir alimente un tableau.
+    if (gagnant !== 0 && gagnant === vainqueur) noterPasseport({ reussite: true });
 
     // Les regles maison ne se comptent pas : un tableau ou toutes les victoires
     // n'ont pas ete gagnees aux memes regles ne veut plus rien dire.
     if (!partie.enregistree && P.estOfficielle(partie)) {
         partie.enregistree = true;
-        // A deux sur le meme ecran, « victoire » se lit du cote des blancs :
-        // c'est la seule convention qui garde un tableau lisible.
-        const vainqueur = soloEnCours() ? campDuJoueur() : BLANC;
         const issue = gagnant === 0 ? 'nulle' : gagnant === vainqueur ? 'victoire' : 'defaite';
         enregistrerFin(cleStats(preferences), issue);
         stats = chargerStats();

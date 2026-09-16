@@ -6,6 +6,17 @@ sans serveur ni dépendance. Une page statique posée sur GitHub Pages.
 
 **Jouer : https://aytan-sudo.github.io/Dames/**
 
+## Version 1.4.0 — Le passeport commun
+
+Ouvert depuis le hub avec un passeport, le jeu range préférences, statistiques
+et partie en cours dans l’espace du joueur ; en mode invité, rien ne change. Un
+bandeau rappelle le profil et la consigne du jour.
+
+Le tampon **Logique** récompense l’effort ou la réussite, au premier des deux :
+une partie gagnée le donne tout de suite — y compris aux règles maison, que le
+tableau des statistiques ne compte pas — ; sinon, c’est le vingtième coup joué
+dans la journée. Les coups de l’ordinateur ne comptent pas.
+
 ## Version 1.3.1
 
 - les cibles tactiles de l'interface passent à 44 px (boutons d'en-tête,

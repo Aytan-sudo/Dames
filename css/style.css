@@ -256,7 +256,7 @@ main {
     position: relative;
     /* Le damier prend ce que la page lui laisse : la largeur de l'ecran, ou sa
      * hauteur moins les bandeaux, selon celle qui manque. */
-    width: min(100vw - 16px, 100dvh - 250px, 620px);
+    width: min(100vw - 16px, 100dvh - 294px, 620px);
     padding: clamp(5px, 1.6%, 12px);
     background: var(--cadre);
     border-radius: var(--rayon);
@@ -616,7 +616,7 @@ body.avec-numeros .numero { opacity: 1; }
 
 /* Paysage sur telephone : tout se met a cote du damier plutot qu'au-dessus. */
 @media (orientation: landscape) and (max-height: 560px) {
-    .plateau { width: min(100vw - 16px, 100dvh - 120px, 620px); }
+    .plateau { width: min(100vw - 16px, 100dvh - 164px, 620px); }
     .pendules { padding: 4px 12px 0; }
     .outils { padding: 4px 12px max(6px, env(safe-area-inset-bottom)); }
     .barre { padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }

@@ -13,11 +13,14 @@
 // Le nom du cache porte le numero de version : une version publiee sans le
 // changer resterait invisible pour ceux qui ont installe le jeu.
 
-const VERSION = 'dames-1.3.1';
+const VERSION = 'dames-1.4.0';
 
 const COQUILLE = [
     './',
     'index.html',
+    'commun/passeport.js',
+    'commun/liaison.js',
+    'commun/passeport.css',
     'manifest.webmanifest',
     'css/style.css',
     'js/app.js',
