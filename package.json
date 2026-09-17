@@ -1,6 +1,6 @@
 {
     "name": "dames",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "private": true,
     "description": "Les dames internationales 10×10 et les dames anglaises 8×8, contre l'ordinateur ou à deux sur le même écran. Quatre niveaux, et des règles qu'on peut lever.",
     "type": "module",
